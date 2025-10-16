@@ -203,11 +203,148 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             height: 40
-            z: 999   // 在内容之上但在控制按钮之下
+            z: 998   // 在内容之上但在控制按钮之下
 
             onPressed: {
                 rootWindow.startSystemMove()
             }
+        }
+
+        // 窗口边缘调整大小区域
+        // 左边缘
+        MouseArea {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 10
+            cursorShape: Qt.SizeHorCursor
+            z: 999//在拖拽区域之上
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.LeftEdge)
+            }
+        }
+
+        // 右边缘
+        MouseArea {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 10
+            cursorShape: Qt.SizeHorCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.RightEdge)
+            }
+        }
+
+        // 上边缘
+        MouseArea {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 10
+            cursorShape: Qt.SizeVerCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.TopEdge)
+            }
+        }
+
+        // 下边缘
+        MouseArea {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 10
+            cursorShape: Qt.SizeVerCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.BottomEdge)
+            }
+        }
+
+        // 左上角
+        MouseArea {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            width: 10
+            height: 10
+            cursorShape: Qt.SizeFDiagCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.TopLeftCorner)
+            }
+        }
+
+        // 右上角
+        MouseArea {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            width: 10
+            height: 10
+            cursorShape: Qt.SizeBDiagCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.TopRightCorner)
+            }
+        }
+
+        // 左下角
+        MouseArea {
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            width: 10
+            height: 10
+            cursorShape: Qt.SizeBDiagCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.BottomLeftCorner)
+            }
+        }
+
+        // 右下角
+        MouseArea {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            width: 10
+            height: 10
+            cursorShape: Qt.SizeFDiagCursor
+            z: 999
+
+            onPressed: {
+                rootWindow.startSystemResize(Qt.BottomRightCorner)
+            }
+        }
+    }
+
+    onWidthChanged: {
+        if (rootWindow.visibility !== ApplicationWindow.Maximized) {
+            normalWidth = rootWindow.width
+        }
+    }
+
+    onHeightChanged: {
+        if (rootWindow.visibility !== ApplicationWindow.Maximized) {
+            normalHeight = rootWindow.height
+        }
+    }
+
+    onXChanged: {
+        if (rootWindow.visibility !== ApplicationWindow.Maximized) {
+            normalX = rootWindow.x
+        }
+    }
+
+    onYChanged: {
+        if (rootWindow.visibility !== ApplicationWindow.Maximized) {
+            normalY = rootWindow.y
         }
     }
 

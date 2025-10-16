@@ -21,5 +21,7 @@
         <file>qml/assets/fullscreen-exit-line.svg</file>
         <file>qml/assets/fullscreen-line.svg</file>
         <file>qml/Signals.qml</file>
+        <file>qml/views/ConversationListView.qml</file>
+        <file>qml/views/ChatView.qml</file>
     </qresource>
 </RCC>

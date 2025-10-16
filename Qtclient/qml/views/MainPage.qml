@@ -146,6 +146,11 @@ Item {
             Layout.fillHeight: true
             orientation: Qt.Horizontal
 
+            handle: Rectangle {
+                implicitWidth: 1      // 使用 implicitWidth 来建议宽度
+                color: Theme.dividerColor
+            }
+
             // 中侧列表面板
             Item {
                 id: middlePane
@@ -155,7 +160,7 @@ Item {
                 // 添加背景色
                 Rectangle {
                     anchors.fill: parent
-                    color: Theme.chatBackgroundColor
+                    color: Theme.listBackgroundColor
                 }
 
                 StackLayout {
@@ -163,10 +168,10 @@ Item {
                     anchors.fill: parent
                     currentIndex: 0 // 默认显示会话列表
 
-                    // 会话列表视图 (稍后实现)
-                    //ConversationListView { }
+                    //会话列表视图
+                    ConversationListView { }
 
-                    // 联系人列表视图 (稍后实现)
+                    //联系人列表视图 (稍后实现)
                     //ContactListView { }
                 }
             }
