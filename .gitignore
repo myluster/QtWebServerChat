@@ -1,0 +1,33 @@
+# 忽略 node_modules 依赖目录
+node_modules/
+chat-server/node_modules/
+chat-sever/node_modules/
+QtProject/node_modules/
+
+# 忽略构建目录
+build/
+client-qt/build/
+chat-server/build/
+
+# Qt/IDE 配置和二进制文件
+*.user
+*.log
+*.tmp
+*.obj
+*.exe
+*.dll
+*.vcxproj*
+*.cache
+*.cmake
+*.autosave
+*.moc
+*.o
+*.a
+
+# 临时和系统文件
+.DS_Store
+Thumbs.db
+
+# 明确不忽略 .vscode 目录下的文件
+!.vscode/
+!.vscode/**
