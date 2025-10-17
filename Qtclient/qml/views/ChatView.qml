@@ -2,12 +2,16 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
+import "../components"
 
 Item {
     id: chatView
 
     property string chatName: "Chat"
     property string chatId: ""
+
+    // 聊天记录数据模型
+    property var chatMessages: []
 
     ColumnLayout {
         anchors.fill: parent
@@ -53,7 +57,39 @@ Item {
                 SplitView.minimumHeight: 100
                 color: Theme.chatBackgroundColor
 
-                // ScrollView 或 ListView 可以放在这里
+                // 聊天记录显示区域
+                ScrollView {
+                    id: chatScrollView
+                    anchors.fill: parent
+                    clip: true
+
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                    ListView {
+                        id: messagesList
+                        anchors.fill: parent
+                        anchors.margins: 0
+
+                        model: chatMessages
+
+                        delegate: MessageBubble {
+                            width: messagesList.width
+                            isSent: modelData.isSent
+                            messageText: modelData.text
+                            timestamp: modelData.timestamp
+                            senderName: modelData.senderName
+                            maxWidth: messagesList.width * 0.7
+                        }
+
+                        // 设置间距
+                        spacing: Theme.spacingNormal
+
+                        // 默认显示在最新消息处
+                        Component.onCompleted: {
+                            positionViewAtEnd()
+                        }
+                    }
+                }
             }
 
             // 输入区域
@@ -98,8 +134,7 @@ Item {
 
                     onClicked: function() {
                         if (sendButton.hasContent) {
-                            console.log("发送消息: " + messageInput.text)
-                            messageInput.text = ""
+                            sendMessage()
                         }
                     }
                 }
@@ -133,9 +168,92 @@ Item {
                         background: Rectangle {
                             color: "transparent"
                         }
+
+                        // 处理键盘事件：回车发送，Shift+回车换行
+                        Keys.onPressed: function(event) {
+                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                if (event.modifiers & Qt.ShiftModifier) {
+                                    // Shift+回车：插入换行符
+                                    insert(messageInput.cursorPosition, "\n")
+                                } else {
+                                    // 回车：发送消息（仅当有内容时）
+                                    if (messageInput.text.trim().length > 0) {
+                                        sendMessage()
+                                    }
+                                    event.accepted = true
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+
+    // 发送消息的函数
+    function sendMessage() {
+        if (messageInput.text.trim().length > 0) {
+            // 创建新消息对象
+            var newMessage = {
+                "isSent": true,
+                "text": messageInput.text,
+                "timestamp": getCurrentTime(),
+                "senderName": ""
+            };
+
+            // 添加到聊天记录
+            chatMessages.push(newMessage);
+
+            // 使用异步更新模型以避免阻塞UI
+            Qt.callLater(function() {
+                // 更新模型
+                chatMessages = chatMessages.slice(0); // 创建新数组以触发更新
+
+                // 清空输入框
+                messageInput.text = "";
+
+                // 滚动到最新消息
+                messagesList.positionViewAtEnd();
+            });
+        }
+    }
+
+    // 获取当前时间的函数
+    function getCurrentTime() {
+        var now = new Date();
+        return Qt.formatTime(now, "hh:mm");
+    }
+
+    // 加载聊天记录的函数（示例）
+    function loadChatHistory() {
+        // 这里应该从服务器或本地数据库加载聊天记录
+        // 示例数据
+        var sampleMessages = [
+            {
+                "isSent": false,
+                "text": "你好！",
+                "timestamp": "10:30",
+                "senderName": "张三"
+            },
+            {
+                "isSent": true,
+                "text": "你好，有什么可以帮助你的吗？",
+                "timestamp": "10:31",
+                "senderName": ""
+            },
+            {
+                "isSent": false,
+                "text": "我想了解一下你们的产品。",
+                "timestamp": "10:32",
+                "senderName": "张三"
+            }
+        ];
+
+        chatMessages = sampleMessages;
+    }
+
+    // 组件完成时加载聊天记录
+    Component.onCompleted: {
+        loadChatHistory();
     }
 }

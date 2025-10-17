@@ -2,12 +2,14 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
+import ".."
 
 ListView {
     id: contactView
     clip: true
     spacing: 0
-
+    // 启用缓存以提高性能
+    cacheBuffer: 100
     // 存储当前选中的联系人 ID
     property string currentContactId: ""
 
@@ -70,6 +72,45 @@ ListView {
                     contactView.currentContactId = model.contactId
                 }
             }
+        }
+    }
+
+    // 添加好友按钮
+    Button {
+        id: addButton
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: Theme.spacingNormal
+        height: Theme.listHeight-4
+
+        text: "新的好友"
+
+        contentItem: Text {
+            text: addButton.text
+            color: Theme.primaryTextColor
+            font.pixelSize: Theme.fontSizeNormal
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+
+        background: Rectangle {
+            color: Theme.backgroundColor
+            border.color: Theme.dividerColor
+            border.width: 0
+        }
+
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 1
+            color: Theme.dividerColor
+        }
+
+        onClicked: {
+            // 发出添加好友的信号
+            Signals.openAddFriendWindow()
         }
     }
 }

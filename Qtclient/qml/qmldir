@@ -1,2 +1,3 @@
 singleton Theme 1.0 theme/Theme.qml
 singleton Signals 1.0 Signals.qml
+MessageBubble 1.0 MessageBubble.qml

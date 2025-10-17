@@ -25,5 +25,7 @@
         <file>qml/views/ChatView.qml</file>
         <file>qml/views/ContactListView.qml</file>
         <file>qml/views/ContactProfileView.qml</file>
+        <file>qml/components/MessageBubble.qml</file>
+        <file>qml/views/AddFriendWindow.qml</file>
     </qresource>
 </RCC>

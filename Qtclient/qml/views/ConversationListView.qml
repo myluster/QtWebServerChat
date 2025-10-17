@@ -7,7 +7,8 @@ ListView {
     id: conversationView
     clip: true // 裁剪超出边界的内容
     spacing: 0 // 列表项之间不留空隙
-
+    // 启用缓存以提高性能
+    cacheBuffer: 100
     // 存储当前选中的会话 ID
     property string currentConversationId: ""
 

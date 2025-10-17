@@ -12,4 +12,7 @@ QtObject {
 
     // 全屏状态改变信号
     signal fullscreenChanged(bool isFullscreen)
+
+    // 打开添加好友窗口信号
+    signal openAddFriendWindow()
 }

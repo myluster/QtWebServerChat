@@ -3,23 +3,27 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QThreadPool>
 
 int main(int argc, char *argv[])
-{   
+{
     QGuiApplication app(argc, argv);
 
+    // 启用高DPI缩放支持
+    QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
+    // 设置线程池大小以提高并发性能
+    QThreadPool::globalInstance()->setMaxThreadCount(QThread::idealThreadCount());
 
     QSurfaceFormat format;
-    // 3. 设置抗锯齿的样本数量 (数值越高，线条越平滑，但对性能要求也越高)
-    //    通常 4 或 8 已经能提供很好的效果
-    format.setSamples(8);
-    // 4. 将这个 format 应用为应用的默认格式
+
+    // 将这个 format 应用为应用的默认格式
     QSurfaceFormat::setDefaultFormat(format);
 
     QQuickStyle::setStyle("Fusion");
 
     QQuickWindow::setDefaultAlphaBuffer(true);
+
 
     QQmlApplicationEngine engine;
 

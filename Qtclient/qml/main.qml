@@ -400,5 +400,21 @@ ApplicationWindow {
             }
             rootStack.replace("qrc:/qml/views/LoginPage.qml")
         }
+
+        // 处理打开添加好友窗口请求
+        function onOpenAddFriendWindow() {
+            // 创建添加好友窗口
+            var component = Qt.createComponent("qrc:/qml/views/AddFriendWindow.qml")
+            if (component.status === Component.Ready) {
+                var window = component.createObject(rootWindow, {
+                    "width": 400,
+                    "height": 300,
+                    "title": "添加好友"
+                })
+                window.show()
+            } else {
+                console.error("无法加载添加好友窗口:", component.errorString())
+            }
+        }
     }
 }
