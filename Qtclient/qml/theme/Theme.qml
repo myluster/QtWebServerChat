@@ -16,9 +16,10 @@ QtObject {
     readonly property color sidebarBackgroundColor:"#EDEDED"    //侧边栏背景色
     readonly property color dividerColor: "#D5D5D5"             // 分割线颜色
     readonly property color buttonHoverColor: "#E1E1E1"         //按钮悬停颜色
-    readonly property color choiceListColor: "#DEDEDE"         //列表选中颜色
+    readonly property color choiceListColor: "#DEDEDE"          //列表选中颜色
     readonly property color buttonCloseColor: "#E1E1E1"         //按钮不可用颜色
-
+    readonly property color onlineStatusColor:"#07C160"         //在线状态颜色
+    readonly property color offlineStatusColor:"#FF0000"        //离线状态颜色
     // --- 字体大小 ---
     readonly property int fontSizeSmall: 12
     readonly property int fontSizeNormal: 14

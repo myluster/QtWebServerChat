@@ -23,5 +23,7 @@
         <file>qml/Signals.qml</file>
         <file>qml/views/ConversationListView.qml</file>
         <file>qml/views/ChatView.qml</file>
+        <file>qml/views/ContactListView.qml</file>
+        <file>qml/views/ContactProfileView.qml</file>
     </qresource>
 </RCC>

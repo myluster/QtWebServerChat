@@ -58,12 +58,12 @@ ListView {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-                // 更新当前选中的会话 ID
-                conversationView.currentConversationId = model.conversationId
-                // 当点击一个会话时，在右侧加载聊天视图
-                // 并将 'chatName' 和 'chatId' 作为属性传递给它
-                rightPaneLoader.setSource("qrc:/qml/views/ChatView.qml",
-                                          { "chatName": model.name, "chatId": model.conversationId })
+                // 如果点击的是已选中的项，则取消选中
+                if (conversationView.currentConversationId === model.conversationId) {
+                    conversationView.currentConversationId = ""
+                } else {
+                    conversationView.currentConversationId = model.conversationId
+                }
             }
         }
     }

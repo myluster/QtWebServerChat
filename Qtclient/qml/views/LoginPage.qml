@@ -123,9 +123,9 @@ Page {
                 onClicked: {
                     // 简单的前端验证
                     if (usernameField.text.trim() === "" || passwordField.text.trim() === "") {
-                        errorLabel.text = "用户名和密码不能为空"
-                        errorLabel.visible = true
-                        return
+                        //errorLabel.text = "用户名和密码不能为空"
+                        //errorLabel.visible = true
+                        //return
                     }
                     errorLabel.visible = false
                     // 发送切换至主界面的信号
