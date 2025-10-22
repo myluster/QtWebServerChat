@@ -18,11 +18,13 @@ public:
 
     Q_INVOKABLE void connectToServer(const QString &url);
     Q_INVOKABLE void sendLoginRequest(const QString &username, const QString &password);
+    Q_INVOKABLE void sendRegisterRequest(const QString &username, const QString &password);
     Q_INVOKABLE void sendMessage(const QJsonObject &message);
 
 signals:
     void connectionStateChanged(bool connected);
     void loginResponseReceived(bool success, const QString &message);
+    void registerResponseReceived(bool success, const QString &message);
     void messageReceived(const QJsonObject &message);
     void errorOccurred(const QString &error);
 
@@ -32,8 +34,8 @@ private slots:
     void onTextMessageReceived(const QString &message);
     void onError(QAbstractSocket::SocketError error);
     
-    // 修改函数签名以接收QNetworkReply*参数
     void onLoginRequestFinished(QNetworkReply *reply);
+    void onRegisterRequestFinished(QNetworkReply *reply);
 
 private:
     QWebSocket m_webSocket;

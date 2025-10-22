@@ -50,8 +50,14 @@ private:
     // 添加处理登录的方法
     void handle_login();
     
+    // 添加处理注册的方法
+    void handle_register();
+    
     // 添加验证WebSocket握手的方法
     bool verify_websocket_handshake();
+    
+    // 解析POST请求体中的参数
+    std::map<std::string, std::string> parse_post_data(const std::string& body);
 };
 
 #endif // HTTP_SESSION_H

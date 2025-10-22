@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
+import Network 1.0
 
 Page {
     id: registerPage
@@ -9,6 +10,32 @@ Page {
         color: "transparent"
         radius: Theme.cornerRadius
     } // 使用主题背景色
+
+    Connections {
+        target: NetworkManager
+
+        function onRegisterResponseReceived(success, message) {
+            registerButton.enabled = true
+            if (success) {
+                errorLabel.text = message
+                errorLabel.color = "green"
+                errorLabel.visible = true
+                // 注册成功后，返回登录页面
+                rootStack.pop()
+            } else {
+                errorLabel.text = message
+                errorLabel.color = "red"
+                errorLabel.visible = true
+            }
+        }
+
+        function onErrorOccurred(error) {
+            registerButton.enabled = true
+            errorLabel.text = error
+            errorLabel.color = "red"
+            errorLabel.visible = true
+        }
+    }
 
     // 最外层的布局，用于实现自适应和垂直居中
     ColumnLayout {
@@ -121,14 +148,30 @@ Page {
                 text: "注册"
                 onClicked: {
                     // 简单的前端验证
-                    if (passwordField.text!== confirmPasswordField.text) {
+                    if (usernameField.text.trim() === "") {
+                        errorLabel.text = "用户名不能为空"
+                        errorLabel.visible = true
+                        return
+                    }
+                    
+                    if (passwordField.text.trim() === "") {
+                        errorLabel.text = "密码不能为空"
+                        errorLabel.visible = true
+                        return
+                    }
+                    
+                    if (passwordField.text !== confirmPasswordField.text) {
                         errorLabel.text = "两次输入的密码不一致"
                         errorLabel.visible = true
                         return
                     }
+                    
                     errorLabel.visible = false
-                    // 注册成功后，返回登录页面
-                    rootStack.pop()
+                    registerButton.enabled = false
+                    
+                    // 发送注册请求
+                    NetworkManager.connectToServer("http://localhost:8080")
+                    NetworkManager.sendRegisterRequest(usernameField.text, passwordField.text)
                 }
 
                 contentItem: Label {

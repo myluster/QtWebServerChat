@@ -15,8 +15,9 @@ services:
       MYSQL_DATABASE: im_database           # 默认数据库名
       MYSQL_USER: im_user                   # 普通用户
       MYSQL_PASSWORD: password           # 普通用户密码
+      MYSQL_ROOT_HOST: '%'               # 允许root从任何主机连接
     ports:
-      - "3306:3306"                         # 映射端口到主机
+      - "3307:3306"                         # 映射端口到主机，不使用默认端口3306避免与本地MySQL冲突
     volumes:
       # 使用 tmpfs 确保数据在容器停止时被清除
       # 这样每次重启docker-compose时都会重新创建数据库
@@ -42,7 +43,11 @@ services:
       # 这样每次重启docker-compose时都会清空缓存数据
       - type: tmpfs
         target: /data
-    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 # 开发模式下，微服务在本地运行以减少 Docker 容器的启动时间
 # 数据库和缓存服务在Docker中运行，便于开发和测试

@@ -1,13 +1,15 @@
 #include "http_session.h"
+#include "websocket_session.h"
+#include "../utils/crypto_utils.h"
 #include <boost/beast/websocket.hpp>
 #include <iostream>
 #include <sstream>
-#include <random>
 #include <chrono>
+#include <random>
+#include <algorithm>
+#include <cctype>
 #include <iomanip>
-#include "websocket_session.h"
-
-namespace websocket = boost::beast::websocket;
+#include "../utils/database_manager.h"
 
 // 简单的令牌生成函数
 std::string generate_token(const std::string& userId) {
@@ -108,53 +110,170 @@ void http_session::do_read()
         });
 }
 
+std::map<std::string, std::string> http_session::parse_post_data(const std::string& body) {
+    std::map<std::string, std::string> params;
+    
+    size_t pos = 0;
+    while (pos < body.length()) {
+        size_t next = body.find('&', pos);
+        if (next == std::string::npos) {
+            next = body.length();
+        }
+        
+        std::string param = body.substr(pos, next - pos);
+        size_t eq_pos = param.find('=');
+        if (eq_pos != std::string::npos) {
+            std::string key = param.substr(0, eq_pos);
+            std::string value = param.substr(eq_pos + 1);
+            
+            // URL解码（简单实现）
+            std::string decoded_value;
+            for (size_t i = 0; i < value.length(); ++i) {
+                if (value[i] == '%' && i + 2 < value.length()) {
+                    std::string hex = value.substr(i + 1, 2);
+                    char c = static_cast<char>(std::stoi(hex, nullptr, 16));
+                    decoded_value += c;
+                    i += 2;
+                } else if (value[i] == '+') {
+                    decoded_value += ' ';
+                } else {
+                    decoded_value += value[i];
+                }
+            }
+            
+            params[key] = decoded_value;
+        }
+        
+        pos = next + 1;
+    }
+    
+    return params;
+}
+
 void http_session::handle_login() {
     std::cout << "Handling login request" << std::endl;
     
-    // 简单的用户名密码验证（实际项目中应查询数据库）
-    std::string username, password;
-    
     // 解析请求体中的用户名和密码
-    // 这里简化处理，实际应该解析JSON
     std::string body = req_.body();
     std::cout << "Request body: " << body << std::endl;
     
-    // 假设格式为 username=admin&password=123456
-    size_t userPos = body.find("username=");
-    size_t passPos = body.find("password=");
+    auto params = parse_post_data(body);
+    std::string username = params["username"];
+    std::string password = params["password"];
     
-    if (userPos != std::string::npos && passPos != std::string::npos) {
-        size_t userEnd = body.find("&", userPos);
-        if (userEnd == std::string::npos) userEnd = body.length();
-        
-        username = body.substr(userPos + 9, userEnd - userPos - 9);
-        password = body.substr(passPos + 9);
-        std::cout << "Parsed credentials - Username: " << username << ", Password: " << password << std::endl;
-    }
+    std::cout << "Parsed credentials - Username: " << username << ", Password: " << password << std::endl;
     
-    // 简单验证（实际应查询数据库）
-    if (username == "admin" && password == "123456") {
-        std::cout << "Credentials validated successfully" << std::endl;
-        // 生成令牌
-        std::string token = generate_token("12345");  // 用户ID为12345
-        std::cout << "Generated token: " << token << std::endl;
+    // 获取数据库管理器实例
+    DatabaseManager& db = DatabaseManager::getInstance();
+    
+    // 验证用户凭据
+    int userId;
+    std::string storedPasswordHash;
+    if (db.getUserByUsername(username, userId, storedPasswordHash)) {
+        // 对输入的密码进行哈希处理
+        std::string inputPasswordHash = sha256(password); // 使用新的sha256函数
         
-        res_.version(req_.version());
-        res_.result(http::status::ok);
-        res_.set(http::field::server, "GateServer");
-        res_.set(http::field::content_type, "application/json");
-        res_.keep_alive(req_.keep_alive());
-        res_.body() = "{\"type\":\"login_success\",\"token\":\"" + token + "\",\"userId\":\"12345\"}";
-        res_.prepare_payload();
-        std::cout << "Sending success response: " << res_.body() << std::endl;
+        // 比较哈希值
+        if (inputPasswordHash == storedPasswordHash) {
+            std::cout << "Credentials validated successfully" << std::endl;
+            // 生成令牌
+            std::string token = generate_token(std::to_string(userId));  // 用户ID为userId
+            std::cout << "Generated token: " << token << std::endl;
+            
+            res_.version(req_.version());
+            res_.result(http::status::ok);
+            res_.set(http::field::server, "GateServer");
+            res_.set(http::field::content_type, "application/json");
+            res_.keep_alive(req_.keep_alive());
+            res_.body() = "{\"type\":\"login_success\",\"token\":\"" + token + "\",\"userId\":\"" + std::to_string(userId) + "\"}";
+            res_.prepare_payload();
+            std::cout << "Sending success response: " << res_.body() << std::endl;
+        } else {
+            std::cout << "Invalid password" << std::endl;
+            res_.version(req_.version());
+            res_.result(http::status::unauthorized);
+            res_.set(http::field::server, "GateServer");
+            res_.set(http::field::content_type, "application/json");
+            res_.keep_alive(req_.keep_alive());
+            res_.body() = "{\"type\":\"login_failed\",\"message\":\"Invalid username or password\"}";
+            res_.prepare_payload();
+            std::cout << "Sending failure response: " << res_.body() << std::endl;
+        }
     } else {
-        std::cout << "Invalid credentials" << std::endl;
+        std::cout << "User not found" << std::endl;
         res_.version(req_.version());
         res_.result(http::status::unauthorized);
         res_.set(http::field::server, "GateServer");
         res_.set(http::field::content_type, "application/json");
         res_.keep_alive(req_.keep_alive());
         res_.body() = "{\"type\":\"login_failed\",\"message\":\"Invalid username or password\"}";
+        res_.prepare_payload();
+        std::cout << "Sending failure response: " << res_.body() << std::endl;
+    }
+}
+
+void http_session::handle_register() {
+    std::cout << "Handling register request" << std::endl;
+    
+    // 解析请求体中的用户名和密码
+    std::string body = req_.body();
+    std::cout << "Request body: " << body << std::endl;
+    
+    auto params = parse_post_data(body);
+    std::string username = params["username"];
+    std::string password = params["password"];
+    
+    // 简单验证
+    if (username.empty() || password.empty()) {
+        res_.version(req_.version());
+        res_.result(http::status::bad_request);
+        res_.set(http::field::server, "GateServer");
+        res_.set(http::field::content_type, "application/json");
+        res_.keep_alive(req_.keep_alive());
+        res_.body() = "{\"type\":\"register_failed\",\"message\":\"Username and password are required\"}";
+        res_.prepare_payload();
+        std::cout << "Sending failure response: " << res_.body() << std::endl;
+        do_write();
+        return;
+    }
+    
+    // 获取数据库管理器实例
+    DatabaseManager& db = DatabaseManager::getInstance();
+    
+    // 检查用户是否已存在
+    if (db.userExists(username)) {
+        res_.version(req_.version());
+        res_.result(http::status::conflict);
+        res_.set(http::field::server, "GateServer");
+        res_.set(http::field::content_type, "application/json");
+        res_.keep_alive(req_.keep_alive());
+        res_.body() = "{\"type\":\"register_failed\",\"message\":\"Username already exists\"}";
+        res_.prepare_payload();
+        std::cout << "Sending failure response: " << res_.body() << std::endl;
+        do_write();
+        return;
+    }
+    
+    // 创建新用户
+    int userId;
+    if (db.createUser(username, password, userId)) {
+        std::cout << "User registered successfully" << std::endl;
+        res_.version(req_.version());
+        res_.result(http::status::ok);
+        res_.set(http::field::server, "GateServer");
+        res_.set(http::field::content_type, "application/json");
+        res_.keep_alive(req_.keep_alive());
+        res_.body() = "{\"type\":\"register_success\",\"message\":\"User registered successfully\",\"userId\":\"" + std::to_string(userId) + "\"}";
+        res_.prepare_payload();
+        std::cout << "Sending success response: " << res_.body() << std::endl;
+    } else {
+        std::cout << "Failed to register user" << std::endl;
+        res_.version(req_.version());
+        res_.result(http::status::internal_server_error);
+        res_.set(http::field::server, "GateServer");
+        res_.set(http::field::content_type, "application/json");
+        res_.keep_alive(req_.keep_alive());
+        res_.body() = "{\"type\":\"register_failed\",\"message\":\"Failed to register user\"}";
         res_.prepare_payload();
         std::cout << "Sending failure response: " << res_.body() << std::endl;
     }
@@ -244,6 +363,11 @@ void http_session::on_read()
     {
         // 处理登录请求
         handle_login();
+    }
+    else if(req_.method() == http::verb::post && req_.target() == "/register")
+    {
+        // 处理注册请求
+        handle_register();
     }
     else
     {

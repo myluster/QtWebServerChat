@@ -49,7 +49,7 @@ if ! command -v docker-compose &> /dev/null; then
 fi
 
 # 启动服务
-echo "启动容器..."
+
 cd "${PROJECT_ROOT}/Docker"
 docker-compose -f docker-compose.dev.yml up -d
 
@@ -58,17 +58,37 @@ echo ""
 echo "等待服务准备就绪..."
 attempt=1
 max_attempts=30
-while ! docker exec im_mysql_dev mysqladmin ping -h localhost -u root -ppassword --silent 2>/dev/null; do
-    echo "  尝试 #$attempt: MySQL 尚未就绪，等待中..."
+
+# 等待 MySQL 容器变为健康状态
+echo "等待 MySQL 容器变为健康状态..."
+while [ "$(docker inspect -f '{{.State.Health.Status}}' im_mysql_dev 2>/dev/null)" != "healthy" ]; do
+    echo "  尝试 #$attempt: MySQL 容器尚未健康，等待中..."
     sleep 2
     ((attempt++))
     if [ $attempt -gt $max_attempts ]; then
-        echo "MySQL 服务未能在规定时间内启动，请检查日志:"
+        echo "MySQL 容器未能在规定时间内变为健康状态，请检查日志:"
         echo "docker logs im_mysql_dev"
         exit 1
     fi
 done
-echo "MySQL 服务已就绪!"
+echo "MySQL 容器已健康!"
+
+# 等待 Redis 容器变为健康状态（如果配置了健康检查）
+if docker inspect -f '{{.Config.Healthcheck}}' im_redis_dev &>/dev/null; then
+    echo "等待 Redis 容器变为健康状态..."
+    attempt=1
+    while [ "$(docker inspect -f '{{.State.Health.Status}}' im_redis_dev 2>/dev/null)" != "healthy" ]; do
+        echo "  尝试 #$attempt: Redis 容器尚未健康，等待中..."
+        sleep 2
+        ((attempt++))
+        if [ $attempt -gt $max_attempts ]; then
+            echo "Redis 容器未能在规定时间内变为健康状态，请检查日志:"
+            echo "docker logs im_redis_dev"
+            exit 1
+        fi
+    done
+    echo "Redis 容器已健康!"
+fi
 
 # 检查服务状态
 echo ""
@@ -100,7 +120,7 @@ cd "${PROJECT_ROOT}/Services/build"
 
 # 启动 GateServer 并将输出重定向到日志文件
 if [ -f "./GateServer/GateServer" ]; then
-    ./GateServer/GateServer > gate_server.log 2>&1 &
+    ./GateServer/GateServer 0.0.0.0 8080 > gate_server.log 2>&1 &
     echo "GateServer 已启动，日志已写入 gate_server.log"
 else
     echo "警告: GateServer 可执行文件未找到"

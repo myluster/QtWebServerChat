@@ -45,6 +45,21 @@ void NetworkManager::sendLoginRequest(const QString &username, const QString &pa
     reply->setProperty("username", username);
 }
 
+void NetworkManager::sendRegisterRequest(const QString &username, const QString &password)
+{
+    // 发送HTTP POST请求到/register端点
+    QNetworkRequest request;
+    request.setUrl(QUrl(m_serverUrl + "/register"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+    
+    QByteArray postData;
+    postData.append("username=" + username.toUtf8() + "&password=" + password.toUtf8());
+    
+    QNetworkReply *reply = m_networkManager->post(request, postData);
+    // 存储reply对象以便在调试时识别
+    reply->setProperty("username", username);
+}
+
 // 修改函数签名以接收QNetworkReply*参数
 void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
 {
@@ -78,6 +93,10 @@ void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
                 // 发送成功信号
                 qDebug() << "Emitting loginResponseReceived(true, \"登录成功\")";
                 loginResponseReceived(true, "登录成功");
+            } else if (obj.contains("type") && obj["type"].toString() == "register_success") {
+                // 注册成功响应，不应该在这里处理
+                qDebug() << "Received register success response in login handler, ignoring";
+                // 可以选择发送一个特殊的消息或者忽略
             } else {
                 // 登录失败
                 QString message = obj.contains("message") ? obj["message"].toString() : "登录失败";
@@ -92,6 +111,52 @@ void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
     } else {
         qDebug() << "Network error:" << reply->errorString();
         loginResponseReceived(false, "网络错误: " + reply->errorString());
+    }
+    
+    reply->deleteLater();
+}
+
+void NetworkManager::onRegisterRequestFinished(QNetworkReply *reply)
+{
+    if (!reply) {
+        qDebug() << "No reply object provided";
+        return;
+    }
+    
+    qDebug() << "HTTP register response received for user:" << reply->property("username").toString() 
+             << ", error:" << reply->error();
+    
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray response = reply->readAll();
+        qDebug() << "HTTP register response body:" << response;
+        
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(response, &parseError);
+        
+        if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
+            QJsonObject obj = doc.object();
+            qDebug() << "Parsed JSON object:" << obj;
+            
+            if (obj.contains("type") && obj["type"].toString() == "register_success") {
+                // 注册成功
+                QString message = obj.contains("message") ? obj["message"].toString() : "注册成功";
+                qDebug() << "Register successful, message:" << message;
+                qDebug() << "Emitting registerResponseReceived(true, " << message << ")";
+                registerResponseReceived(true, message);
+            } else {
+                // 注册失败
+                QString message = obj.contains("message") ? obj["message"].toString() : "注册失败";
+                qDebug() << "Register failed, message:" << message;
+                qDebug() << "Emitting registerResponseReceived(false, " << message << ")";
+                registerResponseReceived(false, message);
+            }
+        } else {
+            qDebug() << "JSON parse error:" << parseError.errorString();
+            registerResponseReceived(false, "服务器响应格式错误");
+        }
+    } else {
+        qDebug() << "Network error:" << reply->errorString();
+        registerResponseReceived(false, "网络错误: " + reply->errorString());
     }
     
     reply->deleteLater();

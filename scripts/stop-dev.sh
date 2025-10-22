@@ -22,7 +22,7 @@ echo "所有微服务已停止。"
 # 停止 Docker 服务
 echo "停止 Docker 服务..."
 cd "${PROJECT_ROOT}/Docker"
-docker-compose -f docker-compose.dev.yml down
+docker-compose -f docker-compose.dev.yml down -v
 
 echo ""
 echo "============================================"
