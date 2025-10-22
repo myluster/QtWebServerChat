@@ -1,3 +1,130 @@
 {
-    "cmake.sourceDirectory": "D:/QtProjection/QtWebServerChat/Qtclient"
+    // VSCode编辑器基本设置
+    "editor.inlineSuggest.triggerCommandOnProviderChange": false,
+    
+    // C/C++扩展配置
+    "C_Cpp.errorSquiggles": "enabled",           // 启用错误波浪线提示
+    "C_Cpp.intelliSenseEngine": "default",       // 使用默认IntelliSense引擎
+    "C_Cpp.default.compilerPath": "/usr/bin/g++", // 默认编译器路径
+    "C_Cpp.default.cppStandard": "c++17",        // 默认C++标准
+    "C_Cpp.default.cStandard": "c17",            // 默认C标准
+    
+    // C/C++包含路径配置
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",                 // 工作区所有文件
+        "/usr/include/**",                       // 系统头文件
+        "/usr/local/include/**",                 // 本地安装的头文件
+        "/usr/include/c++/**",                   // C++标准库
+        "/usr/include/x86_64-linux-gnu/c++/**"   // 平台特定C++头文件
+    ],
+    
+    // 浏览器路径配置
+    "C_Cpp.default.browse.path": [
+        "${workspaceFolder}/**",
+        "/usr/include/**",
+        "/usr/local/include/**",
+        "/usr/include/c++/**",
+        "/usr/include/x86_64-linux-gnu/c++/**"
+    ],
+    
+    // 预处理器定义
+    "C_Cpp.default.defines": [
+        "BOOST_ASIO_STANDALONE",                 // Boost.Asio独立模式
+        "BOOST_BEAST_SEPARATE_COMPILATION"       // Boost.Beast分离编译
+    ],
+    
+    // 代码分析配置
+    "C_Cpp.codeAnalysis.runAutomatically": true, // 自动运行代码分析
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true, // 启用clang-tidy
+    "C_Cpp.codeAnalysis.clangTidy.path": "/usr/bin/clang-tidy", // clang-tidy路径
+    
+    // 文件关联配置
+    "files.associations": {
+        "*.hpp": "cpp",
+        "*.h": "cpp",
+        "cctype": "cpp",
+        "clocale": "cpp",
+        "cmath": "cpp",
+        "csignal": "cpp",
+        "cstdarg": "cpp",
+        "cstddef": "cpp",
+        "cstdio": "cpp",
+        "cstdlib": "cpp",
+        "cstring": "cpp",
+        "ctime": "cpp",
+        "cwchar": "cpp",
+        "cwctype": "cpp",
+        "any": "cpp",
+        "array": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "charconv": "cpp",
+        "chrono": "cpp",
+        "codecvt": "cpp",
+        "compare": "cpp",
+        "complex": "cpp",
+        "concepts": "cpp",
+        "condition_variable": "cpp",
+        "coroutine": "cpp",
+        "cstdint": "cpp",
+        "deque": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "exception": "cpp",
+        "algorithm": "cpp",
+        "functional": "cpp",
+        "iterator": "cpp",
+        "memory": "cpp",
+        "memory_resource": "cpp",
+        "numeric": "cpp",
+        "optional": "cpp",
+        "random": "cpp",
+        "ratio": "cpp",
+        "source_location": "cpp",
+        "string_view": "cpp",
+        "system_error": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "format": "cpp",
+        "future": "cpp",
+        "initializer_list": "cpp",
+        "iomanip": "cpp",
+        "iosfwd": "cpp",
+        "iostream": "cpp",
+        "istream": "cpp",
+        "limits": "cpp",
+        "mutex": "cpp",
+        "new": "cpp",
+        "numbers": "cpp",
+        "ostream": "cpp",
+        "semaphore": "cpp",
+        "shared_mutex": "cpp",
+        "span": "cpp",
+        "sstream": "cpp",
+        "stdexcept": "cpp",
+        "stop_token": "cpp",
+        "streambuf": "cpp",
+        "thread": "cpp",
+        "cinttypes": "cpp",
+        "typeindex": "cpp",
+        "typeinfo": "cpp",
+        "variant": "cpp"
+    },
+    
+    // CMake配置
+    "cmake.configureOnOpen": true,               // 打开时自动配置CMake
+    "cmake.buildDirectory": "${workspaceFolder}/build", // 构建目录
+    
+    // 终端配置
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "bash"
+        }
+    },
+    "terminal.integrated.defaultProfile.linux": "bash"
 }

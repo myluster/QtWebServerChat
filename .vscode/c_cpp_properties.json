@@ -1,0 +1,29 @@
+{
+    // C/C++ IntelliSense配置，配置优先级高于 settings.json
+    "configurations": [
+        {
+            "name": "Linux",                         // 配置名称
+            "includePath": [                        // 头文件搜索路径
+                "${workspaceFolder}/**",            // 工作区所有文件
+                "/usr/include/**",                  // 系统头文件
+                "/usr/local/include/**",            // 本地安装的头文件
+                "/usr/include/c++/**",              // C++标准库
+                "/usr/include/x86_64-linux-gnu/c++/**", // 平台特定C++头文件
+                "/usr/include/boost/**",            // Boost库
+                "/usr/include/grpc/**",             // gRPC库
+                "/usr/include/google/**",           // Google相关库
+                "/usr/include/mysql/**",            // MySQL客户端库
+                "/usr/include/hiredis/**"           // Redis客户端库
+            ],
+            "defines": [                            // 预处理器宏定义
+                "BOOST_ASIO_STANDALONE",            // Boost.Asio独立模式
+                "BOOST_BEAST_SEPARATE_COMPILATION"  // Boost.Beast分离编译
+            ],
+            "compilerPath": "/usr/bin/g++",         // 编译器路径
+            "cStandard": "c17",                     // C标准
+            "cppStandard": "c++17",                 // C++标准
+            "intelliSenseMode": "linux-gcc-x64"     // IntelliSense模式
+        }
+    ],
+    "version": 4                                    // 配置文件版本
+}

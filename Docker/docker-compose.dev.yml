@@ -1,0 +1,48 @@
+version: '3.8'
+
+# 开发环境配置
+# 所有服务都配置为在开发环境中使用，数据不会持久化存储
+# 每次重启docker-compose时，所有数据都会丢失
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: im_mysql_dev
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password     # root用户密码
+      MYSQL_DATABASE: im_database           # 默认数据库名
+      MYSQL_USER: im_user                   # 普通用户
+      MYSQL_PASSWORD: password           # 普通用户密码
+    ports:
+      - "3306:3306"                         # 映射端口到主机
+    volumes:
+      # 使用 tmpfs 确保数据在容器停止时被清除
+      # 这样每次重启docker-compose时都会重新创建数据库
+      - type: tmpfs
+        target: /var/lib/mysql
+      # 初始化脚本目录映射
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis 缓存服务
+  redis:
+    image: redis:6.0-alpine
+    container_name: im_redis_dev
+    restart: always
+    ports:
+      - "6379:6379"                         # 映射端口到主机
+    volumes:
+      # 使用 tmpfs 确保数据在容器停止时被清除
+      # 这样每次重启docker-compose时都会清空缓存数据
+      - type: tmpfs
+        target: /data
+    command: redis-server --appendonly yes
+
+# 开发模式下，微服务在本地运行以减少 Docker 容器的启动时间
+# 数据库和缓存服务在Docker中运行，便于开发和测试

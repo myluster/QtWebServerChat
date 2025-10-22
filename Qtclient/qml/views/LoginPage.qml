@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
 import ".."
+import Network 1.0
 
 Page {
     id: loginPage
@@ -11,12 +12,52 @@ Page {
         radius: Theme.cornerRadius
     } // 使用主题背景色
 
+    Connections {
+        target: NetworkManager // 目标是全局单例
+
+        // 处理连接状态改变
+        function onConnectionStateChanged(connected) {
+            console.log("Connection state changed:", connected);
+            if (!connected) {
+                errorLabel.text = "与服务器断开连接"
+                errorLabel.visible = true
+            } else {
+                errorLabel.visible = false
+            }
+        }
+
+        // 处理登录响应
+        function onLoginResponseReceived(success, message) {
+            console.log("Login response received - Success:", success, "Message:", message);
+            loginButton.enabled = true
+
+            if (success) {
+                console.log("Login successful, navigating to main page");
+                Signals.goToMainPage(); // 导航到主页面
+            } else {
+                errorLabel.text = message
+                errorLabel.visible = true
+            }
+        }
+
+        // 发生错误时的处理
+        function onErrorOccurred(error) {
+            console.log("Network error occurred:", error);
+            loginButton.enabled = true
+            errorLabel.text = "网络错误: " + error
+            errorLabel.visible = true
+        }
+    }
+
     Component.onCompleted: {
         // 如果当前退出全屏的窗口大小不是登录页面的默认大小，则重置为默认大小
         if (normalWidth !== 400 || normalHeight !== 600) {
             normalWidth = 400
             normalHeight = 600
         }
+        
+        // 不再在页面加载时直接连接到服务器
+        // 现在改为在用户点击登录按钮时通过HTTP请求获取令牌后再建立WebSocket连接
     }
 
     // 最外层的布局，用于实现自适应布局
@@ -123,13 +164,21 @@ Page {
                 onClicked: {
                     // 简单的前端验证
                     if (usernameField.text.trim() === "" || passwordField.text.trim() === "") {
-                        //errorLabel.text = "用户名和密码不能为空"
-                        //errorLabel.visible = true
-                        //return
+                        errorLabel.text = "用户名和密码不能为空"
+                        errorLabel.visible = true
+                        return
                     }
+                    //隐藏之前的错误信息
                     errorLabel.visible = false
-                    // 发送切换至主界面的信号
-                    Signals.goToMainPage()
+
+                    // 禁用登录按钮，防止重复点击
+                    enabled = false
+
+                    // 通过 NetworkManager 发送登录请求（现在是HTTP请求）
+                    // 传递服务器的基础URL，不包含ws://协议
+                    console.log("Sending login request with username:", usernameField.text);
+                    NetworkManager.connectToServer("http://localhost:8080")
+                    NetworkManager.sendLoginRequest(usernameField.text, passwordField.text)
                 }
 
                 // 按钮文本显示样式

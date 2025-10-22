@@ -21,6 +21,7 @@ set(CMAKE_AUTORCC ON)
 qt_add_executable(appQtclient
     main.cpp
     resource.qrc
+    backend/networkmanager.h backend/networkmanager.cpp
 )
 
 set_target_properties(appQtclient PROPERTIES

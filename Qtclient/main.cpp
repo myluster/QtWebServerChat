@@ -4,6 +4,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QThreadPool>
+#include "backend/networkmanager.h"
 
 int main(int argc, char *argv[])
 {
@@ -27,14 +28,21 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
 
+    // 创建一个 NetworkManager 实例，并将其父对象设置为 app，这样它将在 app 退出时被自动清理
+    NetworkManager *networkManager = new NetworkManager(&app);
+
+    // 将此实例注册为 QML 单例
+    // QML 中将通过 "NetworkManager" 这个名字全局访问
+    qmlRegisterSingletonInstance("Network", 1, 0, "NetworkManager", networkManager);
+
+    const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
+
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
         &app,
         []() { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
-
-    const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
 
     engine.load(url);
 

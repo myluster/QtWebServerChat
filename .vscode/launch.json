@@ -1,0 +1,71 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // 调试GateServer网关服务器
+            "name": "Debug GateServer",
+            "type": "cppdbg",                       // C++调试器类型
+            "request": "launch",                    // 启动调试会话
+            "program": "${workspaceFolder}/Services/GateServer/build/GateServer", // 可执行文件路径
+            "args": [],                             // 程序启动参数
+            "stopAtEntry": false,                   // 是否在入口点停止
+            "cwd": "${workspaceFolder}",            // 当前工作目录
+            "environment": [],                      // 环境变量
+            "externalConsole": false,               // 使用内部控制台
+            "MIMode": "gdb",                        // 使用GDB调试器
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb", // 启用GDB美化打印
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build-services",      // 启动前执行构建任务
+            "miDebuggerPath": "/usr/bin/gdb"        // GDB调试器路径
+        },
+        {
+            // 调试StatusServer状态服务器
+            "name": "Debug StatusServer",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Services/StatusServer/build/StatusServer",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build-services",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            // 调试VarifyServer验证服务器
+            "name": "Debug VarifyServer",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Services/VarifyServer/build/VarifyServer",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build-services",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

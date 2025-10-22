@@ -8,6 +8,7 @@ QtProject/node_modules/
 build/
 client-qt/build/
 chat-server/build/
+Services/build/
 
 # Qt/IDE 配置和二进制文件
 *.user
@@ -24,6 +25,17 @@ chat-server/build/
 *.o
 *.a
 
+# CMake 相关文件
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# Docker 相关文件
+.dockerignore
+
 # 临时和系统文件
 .DS_Store
 Thumbs.db
@@ -31,3 +43,18 @@ Thumbs.db
 # 明确不忽略 .vscode 目录下的文件
 !.vscode/
 !.vscode/**
+
+# 编译器和链接器输出
+*.so
+*.dylib
+*.lib
+*.pdb
+*.ilk
+*.exp
+*.manifest
+*.res
+*.idb
+*.pdb
+*.sdf
+*.opensdf
+*.unsuccessfulbuild
