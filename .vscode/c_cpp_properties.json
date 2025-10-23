@@ -13,7 +13,9 @@
                 "/usr/include/grpc/**",             // gRPC库
                 "/usr/include/google/**",           // Google相关库
                 "/usr/include/mysql/**",            // MySQL客户端库
-                "/usr/include/hiredis/**"           // Redis客户端库
+                "/usr/include/hiredis/**",          // Redis客户端库
+                "/usr/include/nlohmann/**",         // nlohmann/json库
+                "/mnt/d/QtProjection/QtWebServerChat/Services/build/generated"  // gRPC生成文件目录
             ],
             "defines": [                            // 预处理器宏定义
                 "BOOST_ASIO_STANDALONE",            // Boost.Asio独立模式

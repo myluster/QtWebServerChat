@@ -20,7 +20,7 @@ int main() {
     std::cout << "✓ Boost.Asio 可用" << std::endl;
     
     // 测试 Boost.Beast
-    boost::beast::http:: verb v;  // 简单声明以验证头文件可用
+    [[maybe_unused]] boost::beast::http::verb v;  // 简单声明以验证头文件可用
     std::cout << "✓ Boost.Beast 可用" << std::endl;
     
     // 测试 MySQL 客户端

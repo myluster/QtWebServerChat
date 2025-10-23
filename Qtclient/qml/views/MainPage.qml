@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
 import ".."
+import Network 1.0
 
 Item {
     id: mainPage
@@ -133,6 +134,8 @@ Item {
                     Layout.preferredHeight: 48
 
                     onClicked: {
+                        // 主动关闭WebSocket连接
+                        NetworkManager.disconnectFromServer()
                         Signals.backToLoginPage() // 返回登录页
                     }
 

@@ -3,42 +3,67 @@
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
+#include <boost/beast/websocket.hpp>
 #include <boost/asio.hpp>
 #include <memory>
 #include <string>
 #include <map>
+#include <unordered_map>
+#include <chrono>
+#include "connection_manager.h"
+#include <nlohmann/json.hpp>
 
-namespace beast = boost::beast;         // from <boost/beast.hpp>
-namespace http = beast::http;           // from <boost/beast/http.hpp>
-namespace net = boost::asio;            // from <boost/asio.hpp>
-using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace websocket = beast::websocket;
+namespace net = boost::asio;
+using tcp = boost::asio::ip::tcp;
+using json = nlohmann::json;
 
-// 简单的令牌验证函数声明
+// 令牌验证和生成函数声明
 bool verify_token(const std::string& token, std::string& userId);
 std::string generate_token(const std::string& userId);
+
+// 请求频率限制管理器
+class RateLimiter {
+private:
+    static std::unordered_map<std::string, std::pair<int, std::chrono::steady_clock::time_point>> request_counts_;
+    static std::mutex mutex_;
+    
+public:
+    static bool is_allowed(const std::string& client_ip, int max_requests = 10, int window_seconds = 60);
+};
 
 class http_session : public std::enable_shared_from_this<http_session>
 {
 private:
-    // 这是用于发送和接收消息的流套接字
     beast::tcp_stream stream_;
-    // 缓冲区保存从客户端读取的数据
     beast::flat_buffer buffer_;
-    // 保存从客户端读取的消息
     http::request<http::string_body> req_;
-    // 发送给客户端的响应消息
     http::response<http::string_body> res_;
+    std::string userId_;
+    std::string sessionId_;
+    std::string clientIp_;  // 客户端IP地址
 
 public:
-    // 构造函数需要套接字
-    explicit http_session(tcp::socket&& socket);
+    explicit http_session(tcp::socket&& socket)
+        : stream_(std::move(socket))
+        , userId_("")
+        , sessionId_("")
+    {
+        // 获取客户端IP地址
+        try {
+            clientIp_ = stream_.socket().remote_endpoint().address().to_string();
+        } catch (...) {
+            clientIp_ = "unknown";
+        }
+    }
 
-    // 启动会话
-    void run();
+    void run(); 
 
-    // 获取一个指向自身的共享指针
     std::shared_ptr<http_session> shared_this();
+    const std::string& getUserId() const { return userId_; }
+    const std::string& getClientIp() const { return clientIp_; }
 
 private:
     void do_read();
@@ -46,18 +71,21 @@ private:
     void do_write();
     void do_close();
     void fail(beast::error_code ec, char const* what);
-    
-    // 添加处理登录的方法
     void handle_login();
-    
-    // 添加处理注册的方法
     void handle_register();
-    
-    // 添加验证WebSocket握手的方法
+    void handle_health_check();  // 新增健康检查处理
     bool verify_websocket_handshake();
-    
-    // 解析POST请求体中的参数
     std::map<std::string, std::string> parse_post_data(const std::string& body);
+    std::string generate_session_id();
+    
+    // 响应发送辅助函数
+    void send_response(http::status status, const std::string& content_type, const std::string& body);
+    void send_json_response(http::status status, const std::string& json);
+    void send_error_response(http::status status, const std::string& message);
+    
+    // 请求验证辅助函数
+    bool validate_rate_limit();
+    bool validate_content_type(const std::string& expected_type);
 };
 
 #endif // HTTP_SESSION_H

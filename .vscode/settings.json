@@ -114,7 +114,10 @@
         "typeindex": "cpp",
         "typeinfo": "cpp",
         "variant": "cpp",
-        "unordered_set": "cpp"
+        "unordered_set": "cpp",
+        "forward_list": "cpp",
+        "ranges": "cpp",
+        "valarray": "cpp"
     },
     
     // CMake配置

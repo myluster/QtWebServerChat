@@ -6,13 +6,24 @@
 NetworkManager::NetworkManager(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
+    , m_serverUrl("http://localhost:8080")  // 默认服务器URL
 {
+    // 连接WebSocket信号
     connect(&m_webSocket, &QWebSocket::connected, this, &NetworkManager::onConnected);
     connect(&m_webSocket, &QWebSocket::disconnected, this, &NetworkManager::onDisconnected);
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &NetworkManager::onTextMessageReceived);
-    connect(&m_webSocket, static_cast<void(QWebSocket::*)(QAbstractSocket::SocketError)>(&QWebSocket::error),
+    connect(&m_webSocket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
             this, &NetworkManager::onError);
-    connect(m_networkManager, &QNetworkAccessManager::finished, this, &NetworkManager::onLoginRequestFinished);
+    
+    // 关键修改：连接QNetworkAccessManager的finished信号到统一处理函数
+    connect(m_networkManager, &QNetworkAccessManager::finished, this, &NetworkManager::onNetworkReplyFinished);
+}
+
+void NetworkManager::disconnectFromServer()
+{
+    if (m_webSocket.state() != QAbstractSocket::UnconnectedState) {
+        m_webSocket.close();
+    }
 }
 
 NetworkManager::~NetworkManager()
@@ -29,6 +40,8 @@ void NetworkManager::connectToServer(const QString &url)
 
 void NetworkManager::sendLoginRequest(const QString &username, const QString &password)
 {
+    qDebug() << "Sending login request for user:" << username;
+    
     // 发送HTTP POST请求到/login端点
     QNetworkRequest request;
     request.setUrl(QUrl(m_serverUrl + "/login"));
@@ -37,30 +50,82 @@ void NetworkManager::sendLoginRequest(const QString &username, const QString &pa
     QByteArray postData;
     postData.append("username=" + username.toUtf8() + "&password=" + password.toUtf8());
     
+    qDebug() << "Login request URL:" << request.url().toString();
+    qDebug() << "Login request headers:" << request.rawHeaderList();
+    qDebug() << "Login request body:" << postData;
+    
     QNetworkReply *reply = m_networkManager->post(request, postData);
     // 不需要额外连接错误信号，因为QNetworkAccessManager::finished信号会处理所有情况
     // 包括错误情况
     
     // 存储reply对象以便在调试时识别
     reply->setProperty("username", username);
+    reply->setProperty("endpoint", "login");
 }
 
-void NetworkManager::sendRegisterRequest(const QString &username, const QString &password)
+void NetworkManager::sendRegisterRequest(const QString &username, const QString &password, const QString &email)
 {
+    qDebug() << "Sending register request for user:" << username;
+    
     // 发送HTTP POST请求到/register端点
     QNetworkRequest request;
     request.setUrl(QUrl(m_serverUrl + "/register"));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     
     QByteArray postData;
-    postData.append("username=" + username.toUtf8() + "&password=" + password.toUtf8());
+    postData.append("username=" + username.toUtf8() + "&password=" + password.toUtf8() + "&email=" + email.toUtf8());  // 添加邮箱字段
+    
+    qDebug() << "Register request URL:" << request.url().toString();
+    qDebug() << "Register request headers:" << request.rawHeaderList();
+    qDebug() << "Register request body:" << postData;
     
     QNetworkReply *reply = m_networkManager->post(request, postData);
     // 存储reply对象以便在调试时识别
     reply->setProperty("username", username);
+    reply->setProperty("endpoint", "register");
 }
 
-// 修改函数签名以接收QNetworkReply*参数
+// 新增的统一处理函数
+void NetworkManager::onNetworkReplyFinished(QNetworkReply *reply)
+{
+    if (!reply) {
+        qDebug() << "No reply object provided";
+        return;
+    }
+    
+    // 获取请求URL以区分登录和注册请求
+    QUrl requestUrl = reply->request().url();
+    QString endpoint = requestUrl.path();
+    QString username = reply->property("username").toString();
+    
+    qDebug() << "HTTP response received for endpoint:" << endpoint 
+             << ", user:" << username 
+             << ", error:" << reply->error();
+    
+    // 检查是否有网络错误
+    if (reply->error() != QNetworkReply::NoError) {
+        qDebug() << "Network error occurred:" << reply->errorString();
+        // 根据端点发送相应的错误信号
+        if (endpoint == "/login") {
+            emit loginResponseReceived(false, "网络错误: " + reply->errorString());
+        } else if (endpoint == "/register") {
+            emit registerResponseReceived(false, "网络错误: " + reply->errorString());
+        }
+        reply->deleteLater();
+        return;
+    }
+    
+    // 根据请求的端点分发到相应的处理函数
+    if (endpoint == "/login") {
+        onLoginRequestFinished(reply);
+    } else if (endpoint == "/register") {
+        onRegisterRequestFinished(reply);
+    } else {
+        qDebug() << "Unknown endpoint:" << endpoint;
+        reply->deleteLater();
+    }
+}
+
 void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
 {
     if (!reply) {
@@ -68,7 +133,12 @@ void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
         return;
     }
     
-    qDebug() << "HTTP response received for user:" << reply->property("username").toString() 
+    // 获取请求URL以区分登录和注册请求
+    QUrl requestUrl = reply->request().url();
+    QString endpoint = requestUrl.path();
+    
+    qDebug() << "HTTP response received for endpoint:" << endpoint 
+             << ", user:" << reply->property("username").toString() 
              << ", error:" << reply->error();
     
     if (reply->error() == QNetworkReply::NoError) {
@@ -82,26 +152,42 @@ void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
             QJsonObject obj = doc.object();
             qDebug() << "Parsed JSON object:" << obj;
             
-            if (obj.contains("type") && obj["type"].toString() == "login_success") {
-                // 登录成功，保存令牌
-                m_token = obj["token"].toString();
-                qDebug() << "Login successful, token:" << m_token;
+            if (obj.contains("type")) {
+                QString type = obj["type"].toString();
                 
-                // 建立WebSocket连接
-                establishWebSocketConnection();
-                
-                // 发送成功信号
-                qDebug() << "Emitting loginResponseReceived(true, \"登录成功\")";
-                loginResponseReceived(true, "登录成功");
-            } else if (obj.contains("type") && obj["type"].toString() == "register_success") {
-                // 注册成功响应，不应该在这里处理
-                qDebug() << "Received register success response in login handler, ignoring";
-                // 可以选择发送一个特殊的消息或者忽略
+                if (type == "login_success") {
+                    // 登录成功，保存令牌
+                    m_token = obj["token"].toString();
+                    qDebug() << "Login successful, token:" << m_token;
+                    
+                    // 建立WebSocket连接
+                    establishWebSocketConnection();
+
+                } else if (type == "register_success") {
+                    // 注册成功响应，应该由onRegisterRequestFinished处理
+                    qDebug() << "Received register success response in login handler, should be handled by onRegisterRequestFinished";
+                    // 直接转发给注册处理函数
+                    onRegisterRequestFinished(reply);
+                    reply->deleteLater();  // 确保在这里释放reply对象
+                    return;  // 立即返回，避免继续执行下面的代码
+                } else if (type == "register_failed") {
+                    // 注册失败响应，应该由onRegisterRequestFinished处理
+                    qDebug() << "Received register failed response in login handler, should be handled by onRegisterRequestFinished";
+                    // 直接转发给注册处理函数
+                    onRegisterRequestFinished(reply);
+                    reply->deleteLater();  // 确保在这里释放reply对象
+                    return;  // 立即返回，避免继续执行下面的代码
+                } else {
+                    // 登录失败
+                    QString message = obj.contains("message") ? obj["message"].toString() : "登录失败";
+                    qDebug() << "Login failed, message:" << message;
+                    qDebug() << "Emitting loginResponseReceived(false, " << message << ")";
+                    loginResponseReceived(false, message);
+                }
             } else {
-                // 登录失败
+                // 未知响应类型，假设为登录响应
                 QString message = obj.contains("message") ? obj["message"].toString() : "登录失败";
-                qDebug() << "Login failed, message:" << message;
-                qDebug() << "Emitting loginResponseReceived(false, " << message << ")";
+                qDebug() << "Unknown response type, assuming login response, message:" << message;
                 loginResponseReceived(false, message);
             }
         } else {
@@ -196,6 +282,10 @@ void NetworkManager::onConnected()
 {
     qDebug() << "Connected to server";
     emit connectionStateChanged(true);
+
+    // 在这里通知 QML 登录已完成，可以导航
+    qDebug() << "WebSocket connected, emitting loginResponseReceived(true)";
+    emit loginResponseReceived(true, "登录成功");
 }
 
 void NetworkManager::onDisconnected()
@@ -234,4 +324,6 @@ void NetworkManager::onError(QAbstractSocket::SocketError error)
     QString errorString = m_webSocket.errorString();
     qWarning() << "WebSocket error:" << errorString;
     emit errorOccurred(errorString);
+
+    emit loginResponseReceived(false, "WebSocket 连接失败: " + errorString);
 }

@@ -95,6 +95,26 @@ Page {
                 border.color: "#E0E0E0"
 
                 TextField {
+                    id: emailField  // 添加邮箱输入框
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.spacingNormal
+                    anchors.rightMargin: Theme.spacingNormal
+                    placeholderText: "设置邮箱"
+                    color: Theme.primaryTextColor
+                    font.pixelSize: Theme.fontSizeNormal
+                    background: Rectangle { color: "transparent" }
+                    selectByMouse: true
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                height: 44
+                color: Theme.incomingBubbleColor
+                radius: Theme.cornerRadius
+                border.color: "#E0E0E0"
+
+                TextField {
                     id: passwordField
                     anchors.fill: parent
                     anchors.leftMargin: Theme.spacingNormal
@@ -154,6 +174,12 @@ Page {
                         return
                     }
                     
+                    if (emailField.text.trim() === "") {  // 添加邮箱验证
+                        errorLabel.text = "邮箱不能为空"
+                        errorLabel.visible = true
+                        return
+                    }
+                    
                     if (passwordField.text.trim() === "") {
                         errorLabel.text = "密码不能为空"
                         errorLabel.visible = true
@@ -171,7 +197,7 @@ Page {
                     
                     // 发送注册请求
                     NetworkManager.connectToServer("http://localhost:8080")
-                    NetworkManager.sendRegisterRequest(usernameField.text, passwordField.text)
+                    NetworkManager.sendRegisterRequest(usernameField.text, passwordField.text, emailField.text)
                 }
 
                 contentItem: Label {

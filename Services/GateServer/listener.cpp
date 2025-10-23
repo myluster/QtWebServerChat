@@ -6,6 +6,9 @@ listener::listener(
     tcp::endpoint endpoint)
     : ioc_(ioc)
     , acceptor_(ioc)
+    , accepting_(false)
+    , address_(endpoint.address().to_string())
+    , port_(endpoint.port())
 {
     beast::error_code ec;
 
@@ -41,16 +44,34 @@ listener::listener(
         fail(ec, "listen");
         return;
     }
+    
+    std::cout << "Listener started on " << address_ << ":" << port_ << std::endl;
 }
 
 // 启动接受连接
 void listener::run()
 {
+    accepting_ = true;
     do_accept();
+}
+
+// 停止接受连接
+void listener::stop()
+{
+    accepting_ = false;
+    beast::error_code ec;
+    acceptor_.cancel(ec);
+    acceptor_.close(ec);
+    std::cout << "Listener stopped on " << address_ << ":" << port_ << std::endl;
 }
 
 void listener::do_accept()
 {
+    // 检查是否应该继续接受连接
+    if (!accepting_) {
+        return;
+    }
+    
     // 使监听器保持活动状态，直到完成
     auto self = shared_from_this();
 
@@ -61,7 +82,10 @@ void listener::do_accept()
         {
             if(ec)
             {
-                self->fail(ec, "accept");
+                // 只有在不是因为取消操作导致的错误时才报告错误
+                if (ec != net::error::operation_aborted) {
+                    self->fail(ec, "accept");
+                }
             }
             else
             {
@@ -69,12 +93,20 @@ void listener::do_accept()
                 std::make_shared<http_session>(std::move(socket))->run();
             }
 
-            // 接受更多连接
-            self->do_accept();
+            // 接受更多连接（如果仍在运行）
+            if (self->accepting_) {
+                self->do_accept();
+            }
         });
 }
 
 void listener::fail(beast::error_code ec, char const* what)
 {
-    std::cerr << what << ": " << ec.message() << "\n";
+    // 不报告操作被取消的错误（这是正常停止的一部分）
+    if (ec == net::error::operation_aborted) {
+        return;
+    }
+    
+    std::cerr << "Listener error on " << address_ << ":" << port_ 
+              << " - " << what << ": " << ec.message() << "\n";
 }

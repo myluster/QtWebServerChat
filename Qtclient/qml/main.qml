@@ -374,18 +374,24 @@ ApplicationWindow {
     Connections{
         target:Signals
 
-        // 进入主页面
         function onGoToMainPage()
         {
-            // 登录成功后调整窗口大小
-            normalWidth = 1024
-            normalHeight = 768
-            // 非全屏大小下才正式改变可视窗口大小
-            if(rootWindow.visibility != ApplicationWindow.Maximized){
-                rootWindow.width = 1024
-                rootWindow.height = 768
+            console.log("Received goToMainPage signal");
+            try {
+                // 登录成功后调整窗口大小
+                normalWidth = 1024
+                normalHeight = 768
+                // 非全屏大小下才正式改变可视窗口大小
+                if(rootWindow.visibility != ApplicationWindow.Maximized){
+                    rootWindow.width = 1024
+                    rootWindow.height = 768
+                }
+                console.log("About to replace with MainPage.qml");
+                rootStack.replace("qrc:/qml/views/MainPage.qml")
+                console.log("Successfully replaced with MainPage.qml");
+            } catch (error) {
+                console.error("Error navigating to main page:", error);
             }
-            rootStack.replace("qrc:/qml/views/MainPage.qml")
         }
 
         // 处理返回登录页面请求

@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 查找所需的库
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 # 添加可执行文件
 add_executable(${PROJECT_NAME}
@@ -18,6 +19,8 @@ add_executable(${PROJECT_NAME}
     http_session.cpp
     websocket_session.cpp
     listener.cpp
+    status_client.cpp
+    connection_manager.cpp
     ../utils/database_manager.cpp
     ../utils/crypto_utils.cpp
 )
@@ -31,6 +34,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
     Threads::Threads
+    nlohmann_json::nlohmann_json
+    proto-generated
 )
 
 # 设置包含目录
@@ -38,4 +43,5 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../utils
     ${OPENSSL_INCLUDE_DIR}
+    ${PROTO_GENERATED_DIR}
 )

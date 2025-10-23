@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package status;
+
+// 状态服务定义
+service StatusService {
+  // 更新用户在线状态
+  rpc UpdateUserStatus (UserStatusRequest) returns (UserStatusResponse);
+  
+  // 获取用户状态
+  rpc GetUserStatus (GetUserStatusRequest) returns (GetUserStatusResponse);
+  
+  // 获取好友列表状态
+  rpc GetFriendsStatus (GetFriendsStatusRequest) returns (GetFriendsStatusResponse);
+  
+  // 添加好友
+  rpc AddFriend (AddFriendRequest) returns (AddFriendResponse);
+  
+  // 获取好友列表
+  rpc GetFriendsList (GetFriendsListRequest) returns (GetFriendsListResponse);
+}
+
+// 用户状态请求
+message UserStatusRequest {
+  int32 user_id = 1;
+  UserStatus status = 2;
+  string session_token = 3;
+}
+
+// 用户状态枚举
+enum UserStatus {
+  OFFLINE = 0;
+  ONLINE = 1;
+  AWAY = 2;
+  BUSY = 3;
+}
+
+// 用户状态响应
+message UserStatusResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 获取用户状态请求
+message GetUserStatusRequest {
+  int32 user_id = 1;
+}
+
+// 获取用户状态响应
+message GetUserStatusResponse {
+  bool success = 1;
+  string message = 2;
+  UserStatus status = 3;
+  int64 last_seen = 4; // 最后在线时间戳
+}
+
+// 获取好友列表状态请求
+message GetFriendsStatusRequest {
+  int32 user_id = 1;
+}
+
+// 好友状态信息
+message FriendStatus {
+  int32 user_id = 1;
+  string username = 2;
+  UserStatus status = 3;
+  int64 last_seen = 4;
+}
+
+// 获取好友列表状态响应
+message GetFriendsStatusResponse {
+  bool success = 1;
+  string message = 2;
+  repeated FriendStatus friends = 3;
+}
+
+// 添加好友请求
+message AddFriendRequest {
+  int32 user_id = 1;
+  int32 friend_id = 2;
+}
+
+// 添加好友响应
+message AddFriendResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 获取好友列表请求
+message GetFriendsListRequest {
+  int32 user_id = 1;
+}
+
+// 好友信息
+message FriendInfo {
+  int32 user_id = 1;
+  string username = 2;
+}
+
+// 获取好友列表响应
+message GetFriendsListResponse {
+  bool success = 1;
+  string message = 2;
+  repeated FriendInfo friends = 3;
+}

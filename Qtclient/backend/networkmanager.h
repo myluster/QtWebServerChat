@@ -18,8 +18,9 @@ public:
 
     Q_INVOKABLE void connectToServer(const QString &url);
     Q_INVOKABLE void sendLoginRequest(const QString &username, const QString &password);
-    Q_INVOKABLE void sendRegisterRequest(const QString &username, const QString &password);
+    Q_INVOKABLE void sendRegisterRequest(const QString &username, const QString &password, const QString &email);
     Q_INVOKABLE void sendMessage(const QJsonObject &message);
+    Q_INVOKABLE void disconnectFromServer();
 
 signals:
     void connectionStateChanged(bool connected);
@@ -33,9 +34,9 @@ private slots:
     void onDisconnected();
     void onTextMessageReceived(const QString &message);
     void onError(QAbstractSocket::SocketError error);
-    
     void onLoginRequestFinished(QNetworkReply *reply);
     void onRegisterRequestFinished(QNetworkReply *reply);
+    void onNetworkReplyFinished(QNetworkReply *reply);  // 新增的统一处理函数
 
 private:
     QWebSocket m_webSocket;
