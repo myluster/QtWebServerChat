@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(Boost REQUIRED COMPONENTS json)
 
 # 添加可执行文件
 add_executable(${PROJECT_NAME}
@@ -20,9 +21,11 @@ add_executable(${PROJECT_NAME}
     websocket_session.cpp
     listener.cpp
     status_client.cpp
+    status_client_manager.cpp
     connection_manager.cpp
     ../utils/database_manager.cpp
     ../utils/crypto_utils.cpp
+    ../utils/logger.cpp
 )
 
 # 链接所需库
@@ -36,6 +39,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Threads::Threads
     nlohmann_json::nlohmann_json
     proto-generated
+    spdlog::spdlog
 )
 
 # 设置包含目录

@@ -15,6 +15,7 @@
                 "/usr/include/mysql/**",            // MySQL客户端库
                 "/usr/include/hiredis/**",          // Redis客户端库
                 "/usr/include/nlohmann/**",         // nlohmann/json库
+                "/usr/include/spdlog/**",           // spdlog库
                 "/mnt/d/QtProjection/QtWebServerChat/Services/build/generated"  // gRPC生成文件目录
             ],
             "defines": [                            // 预处理器宏定义

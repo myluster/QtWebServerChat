@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import "../theme"
 import ".."
 import Network 1.0
+import Logger 1.0
 
 Page {
     id: loginPage
@@ -16,7 +17,7 @@ Page {
         target: NetworkManager
 
         function onConnectionStateChanged(connected) {
-            console.log("Connection state changed:", connected);
+            Logger.info("Connection state changed: " + connected);
             if (!connected) {
                 errorLabel.text = "与服务器断开连接"
                 errorLabel.visible = true
@@ -26,42 +27,42 @@ Page {
         }
 
         function onLoginResponseReceived(success, message) {
-            console.log("Login response received - Success:", success, "Message:", message);
-            console.log("Attempting to enable login button");
+            Logger.info("Login response received - Success: " + success + " Message: " + message);
+            Logger.info("Attempting to enable login button");
             loginButton.enabled = true;
 
             if (success) {
-                console.log("Login successful, attempting to navigate to main page");
-                console.log("Checking if Signals object exists:", typeof Signals !== 'undefined');
-                console.log("Checking if goToMainPage function exists:", typeof Signals.goToMainPage === 'function');
+                Logger.info("Login successful, attempting to navigate to main page");
+                Logger.info("Checking if Signals object exists: " + (typeof Signals !== 'undefined'));
+                Logger.info("Checking if goToMainPage function exists: " + (typeof Signals.goToMainPage === 'function'));
                 
                 // 确保rootStack存在并可访问
-                console.log("Checking if rootStack exists:", typeof rootStack !== 'undefined');
+                Logger.info("Checking if rootStack exists: " + (typeof rootStack !== 'undefined'));
                 
                 try {
                     if (typeof Signals !== 'undefined' && typeof Signals.goToMainPage === 'function') {
-                        console.log("Calling Signals.goToMainPage()");
+                        Logger.info("Calling Signals.goToMainPage()");
                         Signals.goToMainPage();
-                        console.log("After calling Signals.goToMainPage()");
+                        Logger.info("After calling Signals.goToMainPage()");
                     } else {
-                        console.error("Signals object or goToMainPage function not found!");
+                        Logger.error("Signals object or goToMainPage function not found!");
                         errorLabel.text = "页面导航错误，请检查应用程序配置";
                         errorLabel.visible = true;
                     }
                 } catch (e) {
-                    console.error("Exception occurred while navigating to main page:", e);
+                    Logger.error("Exception occurred while navigating to main page: " + e);
                     errorLabel.text = "页面导航异常：" + e.toString();
                     errorLabel.visible = true;
                 }
             } else {
-                console.log("Login failed, showing error message");
+                Logger.info("Login failed, showing error message");
                 errorLabel.text = message;
                 errorLabel.visible = true;
             }
         }
 
         function onErrorOccurred(error) {
-            console.log("Network error occurred:", error);
+            Logger.info("Network error occurred: " + error);
             loginButton.enabled = true
             errorLabel.text = "网络错误: " + error
             errorLabel.visible = true
@@ -173,8 +174,8 @@ Page {
                     errorLabel.visible = false
                     enabled = false
 
-                    console.log("Sending login request with username:", usernameField.text);
-                    NetworkManager.connectToServer("http://localhost:8080")
+                    Logger.info("Sending login request with username: " + usernameField.text);
+                    NetworkManager.connectToServer("http://127.0.0.1:8080")
                     NetworkManager.sendLoginRequest(usernameField.text, passwordField.text)
                 }
 
@@ -221,6 +222,35 @@ Page {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.spacingNormal
+            Layout.rightMargin: 40
+            spacing: Theme.spacingNormal / 2 // 文本和方框间的小间距
+
+            Label {
+                id: proxyLabel
+                text: "使用系统代理"
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.primaryTextColor
+                Layout.alignment: Qt.AlignVCenter // 垂直居中
+            }
+
+            CheckBox {
+                id: proxyCheckBox
+                Layout.alignment: Qt.AlignVCenter
+
+                checked: NetworkManager.useProxy
+
+                // 当勾选时，更新全局 Signals.useProxy
+                onCheckedChanged: {
+                    NetworkManager.useProxy = checked
+                }
+            }
+
+            Item { Layout.fillWidth: true } // 将 CheckBox 推到左侧
         }
     }
 }

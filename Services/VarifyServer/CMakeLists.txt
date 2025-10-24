@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 添加可执行文件
 add_executable(${PROJECT_NAME}
     main.cpp
+    ../utils/logger.cpp
 )
 
 # 链接所需库
@@ -20,10 +21,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${MYSQLCLIENT_LIBRARIES}
     ${HIREDIS_LIBRARY}
     Threads::Threads
+    spdlog::spdlog
 )
 
 # 设置包含目录
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../utils
 )

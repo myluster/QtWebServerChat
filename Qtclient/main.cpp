@@ -5,6 +5,7 @@
 #include <QQuickWindow>
 #include <QThreadPool>
 #include "backend/networkmanager.h"
+#include "utils/qmllogger.h"
 
 int main(int argc, char *argv[])
 {
@@ -34,6 +35,10 @@ int main(int argc, char *argv[])
     // 将此实例注册为 QML 单例
     // QML 中将通过 "NetworkManager" 这个名字全局访问
     qmlRegisterSingletonInstance("Network", 1, 0, "NetworkManager", networkManager);
+
+    // 创建QML日志实例并注册为QML单例
+    QMLLogger *qmlLogger = new QMLLogger(&app);
+    qmlRegisterSingletonInstance("Logger", 1, 0, "Logger", qmlLogger);
 
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
 

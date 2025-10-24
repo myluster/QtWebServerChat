@@ -18,6 +18,9 @@ namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
 namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
+// 前向声明
+class StatusClientManager;
+
 class websocket_session : public std::enable_shared_from_this<websocket_session>
 {
 private:
@@ -36,8 +39,9 @@ private:
     std::chrono::steady_clock::time_point last_heartbeat_;
     static constexpr int HEARTBEAT_INTERVAL = 30; // 30秒心跳间隔
     
-    // StatusClient 实例
-    std::unique_ptr<StatusClient> status_client_;
+    // StatusClient 实例（从池中获取）
+    std::shared_ptr<StatusClient> status_client_;
+    bool client_acquired_; // 标记是否从池中获取了客户端
 
 public:
     // 构造函数需要套接字
@@ -56,7 +60,7 @@ public:
     const std::string& getSessionId() const { return sessionId_; }
     
     // 设置StatusClient
-    void setStatusClient(std::unique_ptr<StatusClient> client) { status_client_ = std::move(client); }
+    void setStatusClient(std::shared_ptr<StatusClient> client);
 
     // 发送消息的线程安全方法
     void send_message(const std::string& message);

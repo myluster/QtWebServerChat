@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import "../theme"
 import ".."
 import Network 1.0
+import Logger 1.0
 
 Item {
     id: mainPage
@@ -253,6 +254,7 @@ Item {
                 // 如果有选中的会话，则加载对应的聊天视图
                 var currentConversation = getConversationById(currentConversationId)
                 if (currentConversation) {
+                    Logger.info("Loading ContactProfileView with mainPage reference");  // 添加调试信息
                     rightPaneLoader.setSource("qrc:/qml/views/ChatView.qml",
                                               { "chatName": currentConversation.name,
                                                 "chatId": currentConversation.conversationId })
@@ -267,7 +269,7 @@ Item {
                 // 如果有选中的联系人，则加载对应的联系人简介视图
                 var currentContact = getContactById(currentContactId)
                 if (currentContact) {
-                    console.log("Loading ContactProfileView with mainPage reference")  // 添加调试信息
+                    Logger.info("Loading ContactProfileView with mainPage reference");  // 添加调试信息
                     rightPaneLoader.setSource("qrc:/qml/views/ContactProfileView.qml",
                                               { "contactName": currentContact.name,
                                                 "contactId": currentContact.contactId,

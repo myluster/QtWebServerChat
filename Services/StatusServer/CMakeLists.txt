@@ -14,6 +14,7 @@ add_executable(${PROJECT_NAME}
     status_service_impl.cpp
     ../utils/database_manager.cpp
     ../utils/crypto_utils.cpp
+    ../utils/logger.cpp
 )
 
 # 链接所需库
@@ -24,6 +25,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${HIREDIS_LIBRARY}
     Threads::Threads
     proto-generated
+    spdlog::spdlog
 )
 
 # 设置包含目录

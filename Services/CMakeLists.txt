@@ -20,7 +20,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 find_package(Threads REQUIRED)
 
 # 查找Boost库 (用于异步网络编程)
-find_package(Boost 1.71 REQUIRED COMPONENTS system thread)
+find_package(Boost 1.71 REQUIRED COMPONENTS system thread json)
 
 # 查找gRPC (用于服务间通信)
 find_package(PkgConfig REQUIRED)
@@ -39,6 +39,9 @@ find_library(HIREDIS_LIBRARY NAMES hiredis)
 
 # 查找nlohmann/json库
 find_package(nlohmann_json REQUIRED)
+
+# 查找spdlog库
+find_package(spdlog REQUIRED)
 
 # Proto文件设置
 set(PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
@@ -104,6 +107,7 @@ target_link_libraries(test_dependencies PRIVATE
     ${HIREDIS_LIBRARY}
     Threads::Threads
     nlohmann_json::nlohmann_json
+    spdlog::spdlog
 )
 
 # 添加子目录（各个微服务）

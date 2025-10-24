@@ -17,6 +17,7 @@
 #include <openssl/rand.h>
 #include <thread>
 #include <mutex>
+#include <boost/json.hpp>
 
 // 静态成员初始化
 std::unordered_map<std::string, std::pair<int, std::chrono::steady_clock::time_point>> RateLimiter::request_counts_;
@@ -182,6 +183,8 @@ void http_session::do_read()
                 auto ws = std::make_shared<websocket_session>(self->stream_.release_socket());
                 ws->setUserId(self->userId_);
                 
+                ws->setSessionId(self->sessionId_); // 传递 http_session 生成的 sessionId
+
                 // 添加到WebSocket管理器
                 WebSocketManager::getInstance().addSession(self->userId_, ws);
                 
@@ -296,17 +299,27 @@ void http_session::handle_login() {
     std::cout << "Handling login request from " << clientIp_ << std::endl;
     
     // 验证内容类型
-    if (!validate_content_type("application/x-www-form-urlencoded")) {
+    if (!validate_content_type("application/json")) {
         return;
     }
     
-    // 解析请求体中的用户名和密码
-    std::string body = req_.body();
-    std::cout << "Request body: " << body << std::endl;
-    
-    auto params = parse_post_data(body);
-    std::string username = params["username"];
-    std::string password = params["password"];
+    std::string username, password;
+    try {
+        // 解析JSON请求体
+        std::string body = req_.body();
+        std::cout << "Request body: " << body << std::endl;
+        
+        boost::json::value jv = boost::json::parse(body);
+        
+        // 提取字段
+        username = jv.at("username").as_string().c_str();
+        password = jv.at("password").as_string().c_str();
+
+    } catch (const std::exception& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        send_error_response(http::status::bad_request, "Invalid JSON format");
+        return;
+    }
     
     std::cout << "Parsed credentials - Username: " << username << ", Password: [HIDDEN]" << std::endl;
     
@@ -343,26 +356,33 @@ void http_session::handle_login() {
 void http_session::handle_register() {
     std::cout << "Handling register request" << std::endl;
     
-    // 解析请求体中的用户名、密码和邮箱
-    std::string body = req_.body();
-    std::cout << "Request body: " << body << std::endl;
+    // 验证内容类型为 JSON
+    if (!validate_content_type("application/json")) {
+        return;
+    }
     
-    auto params = parse_post_data(body);
-    std::string username = params["username"];
-    std::string password = params["password"];
-    std::string email = params["email"]; // 添加邮箱字段
-    
+    std::string username, password, email;
+    try {
+        // 解析JSON请求体
+        std::string body = req_.body();
+        std::cout << "Request body: " << body << std::endl;
+        
+        boost::json::value jv = boost::json::parse(body);
+        
+        // 提取字段
+        username = jv.at("username").as_string().c_str();
+        password = jv.at("password").as_string().c_str();
+        email = jv.at("email").as_string().c_str();
+
+    } catch (const std::exception& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        send_error_response(http::status::bad_request, "Invalid JSON format");
+        return;
+    }
+
     // 简单验证
     if (username.empty() || password.empty()) {
-        res_.version(req_.version());
-        res_.result(http::status::bad_request);
-        res_.set(http::field::server, "GateServer");
-        res_.set(http::field::content_type, "application/json");
-        res_.keep_alive(req_.keep_alive());
-        res_.body() = "{\"type\":\"register_failed\",\"message\":\"Username and password are required\"}";
-        res_.prepare_payload();
-        std::cout << "Sending failure response: " << res_.body() << std::endl;
-        do_write();
+        send_error_response(http::status::bad_request, "Username and password are required");
         return;
     }
     

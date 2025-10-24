@@ -196,7 +196,7 @@ Page {
                     registerButton.enabled = false
                     
                     // 发送注册请求
-                    NetworkManager.connectToServer("http://localhost:8080")
+                    NetworkManager.connectToServer("http://127.0.0.1:8080")
                     NetworkManager.sendRegisterRequest(usernameField.text, passwordField.text, emailField.text)
                 }
 

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 import "."
+import Logger 1.0
 
 ApplicationWindow {
     id: rootWindow
@@ -376,7 +377,7 @@ ApplicationWindow {
 
         function onGoToMainPage()
         {
-            console.log("Received goToMainPage signal");
+            Logger.info("Received goToMainPage signal");
             try {
                 // 登录成功后调整窗口大小
                 normalWidth = 1024
@@ -386,11 +387,11 @@ ApplicationWindow {
                     rootWindow.width = 1024
                     rootWindow.height = 768
                 }
-                console.log("About to replace with MainPage.qml");
+                Logger.info("About to replace with MainPage.qml");
                 rootStack.replace("qrc:/qml/views/MainPage.qml")
-                console.log("Successfully replaced with MainPage.qml");
+                Logger.info("Successfully replaced with MainPage.qml");
             } catch (error) {
-                console.error("Error navigating to main page:", error);
+                Logger.error("Error navigating to main page: " + error);
             }
         }
 
@@ -419,7 +420,7 @@ ApplicationWindow {
                 })
                 window.show()
             } else {
-                console.error("无法加载添加好友窗口:", component.errorString())
+                Logger.error("无法加载添加好友窗口: " + component.errorString())
             }
         }
     }

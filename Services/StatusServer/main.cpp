@@ -8,7 +8,7 @@
 #include <string>
 #include <grpcpp/grpcpp.h>
 #include "status_service_impl.h"
-#include "../utils/database_manager.h"
+#include "../utils/logger.h"
 
 // gRPC服务器端口
 const int GRPC_PORT = 50051;
@@ -23,15 +23,7 @@ void RunServer() {
     builder.RegisterService(&service);
     
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "StatusServer listening on " << server_address << std::endl;
-    
-    // 初始化数据库连接
-    DatabaseManager& db = DatabaseManager::getInstance();
-    if (!db.connect()) {
-        std::cerr << "Warning: Failed to connect to database\n";
-    } else {
-        std::cout << "Database connected successfully\n";
-    }
+    LOG_INFO("StatusServer listening on {}", server_address);
     
     // 等待服务器关闭
     server->Wait();
@@ -39,15 +31,15 @@ void RunServer() {
 
 int main(int argc, char* argv[]) {
     try {
-        std::cout << "Starting StatusServer..." << std::endl;
+        LOG_INFO("Starting StatusServer...");
         
         // 运行gRPC服务器
         RunServer();
         
-        std::cout << "StatusServer stopped" << std::endl;
+        LOG_INFO("StatusServer stopped");
     }
     catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        LOG_ERROR("Error: {}", e.what());
         return 1;
     }
     

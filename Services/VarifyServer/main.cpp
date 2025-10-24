@@ -3,13 +3,14 @@
  * 负责用户认证、权限验证和安全检查
  */
 
-#include <iostream>
 #include <boost/asio.hpp>
+#include <iostream>
+#include "../utils/logger.h"
 
 // 主函数
 int main(int argc, char* argv[]) {
     try {
-        std::cout << "Starting VarifyServer..." << std::endl;
+        LOG_INFO("Starting VarifyServer...");
         
         // TODO: 实现验证服务器逻辑
         // 1. 用户登录验证
@@ -17,13 +18,13 @@ int main(int argc, char* argv[]) {
         // 3. 安全认证
         // 4. 与数据库交互验证用户信息
         
-        std::cout << "VarifyServer started successfully!" << std::endl;
+        LOG_INFO("VarifyServer started successfully!");
         
         // 保持程序运行
         std::cin.get();
     }
     catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        LOG_ERROR("Error: {}", e.what());
         return 1;
     }
     

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../theme"
+import Logger 1.0
 
 Item {
     id: contactProfileView
@@ -59,7 +60,7 @@ Item {
                 Layout.preferredHeight: 44
                 text: "发送消息"
                 onClicked: {
-                    console.log("发送消息给: " + contactName)
+                    Logger.info("发送消息给: " + contactName);
                     // 跳转到会话模式并打开对应会话
                     sendToConversation(contactId, contactName)
                 }
@@ -85,7 +86,7 @@ Item {
                 Layout.preferredHeight: 44
                 text: "删除好友"
                 onClicked: {
-                    console.log("删除好友: " + contactName)
+                    Logger.info("删除好友: " + contactName);
                     // 实现删除好友的逻辑
                     removeContact()
                 }
@@ -112,7 +113,7 @@ Item {
     function sendToConversation(contactId, contactName) {
         // 检查mainPage是否已设置
         if (!mainPage) {
-            console.error("MainPage reference is not set in ContactProfileView")
+            Logger.error("MainPage reference is not set in ContactProfileView");
             return
         }
 
@@ -162,7 +163,7 @@ Item {
     function removeContact() {
         // 检查mainPage是否已设置
         if (!mainPage) {
-            console.error("MainPage reference is not set in ContactProfileView")
+            Logger.error("MainPage reference is not set in ContactProfileView");
             return
         }
 

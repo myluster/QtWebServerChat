@@ -5,6 +5,7 @@
 #include <openssl/sha.h>
 #include <cstdlib>
 #include <cstring>
+#include "logger.h"
 
 // 数据库连接信息
 const std::string DatabaseManager::DB_HOST = "127.0.0.1";
@@ -24,20 +25,20 @@ DatabaseManager::DatabaseManager() : connection_(nullptr), connected_(false) {
 }
 
 DatabaseManager::~DatabaseManager() {
-    std::cout << "DatabaseManager destructor called" << std::endl;
+    LOG_INFO("DatabaseManager destructor called");
     disconnect();
     mysql_library_end();
-    std::cout << "DatabaseManager destructor finished" << std::endl;
+    LOG_INFO("DatabaseManager destructor finished");
 }
 
 void DatabaseManager::disconnect() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (connection_) {
-        std::cout << "Disconnecting from database" << std::endl;
+        LOG_INFO("Disconnecting from database");
         mysql_close(connection_);
         connection_ = nullptr;
         connected_ = false;
-        std::cout << "Disconnected from database" << std::endl;
+        LOG_INFO("Disconnected from database");
     }
 }
 
@@ -56,7 +57,7 @@ bool DatabaseManager::connect_impl() {
     
     connection_ = mysql_init(nullptr);
     if (!connection_) {
-        std::cerr << "mysql_init() failed" << std::endl;
+        LOG_ERROR("mysql_init() failed");
         return false;
     }
     
@@ -70,31 +71,31 @@ bool DatabaseManager::connect_impl() {
     mysql_options(connection_, MYSQL_OPT_PROTOCOL, (void*)&protocol);
 
     // 打印调试信息
-    std::cout << "--- MySQL Client Debug Info ---" << std::endl;
-    std::cout << "  Client Version: " << mysql_get_client_info() << std::endl;
-    std::cout << "  Connecting with:" << std::endl;
-    std::cout << "    Host: " << DB_HOST.c_str() << std::endl;
-    std::cout << "    User: " << DB_USER.c_str() << std::endl;
-    std::cout << "    DB:   " << DB_NAME.c_str() << std::endl;
-    std::cout << "    Port: " << DB_PORT << std::endl;
-    std::cout << "    Protocol: TCP" << std::endl;
-    std::cout << "-----------------------------------" << std::endl;
+    LOG_INFO("--- MySQL Client Debug Info ---");
+    LOG_INFO("  Client Version: {}", mysql_get_client_info());
+    LOG_INFO("  Connecting with:");
+    LOG_INFO("    Host: {}", DB_HOST.c_str());
+    LOG_INFO("    User: {}", DB_USER.c_str());
+    LOG_INFO("    DB:   {}", DB_NAME.c_str());
+    LOG_INFO("    Port: {}", DB_PORT);
+    LOG_INFO("    Protocol: TCP");
+    LOG_INFO("-----------------------------------");
     
     // 连接到数据库
-    std::cout << "Attempting to connect to database..." << std::endl;
+    LOG_INFO("Attempting to connect to database...");
     
     MYSQL* result = mysql_real_connect(connection_, DB_HOST.c_str(), DB_USER.c_str(), 
                            DB_PASSWORD.c_str(), DB_NAME.c_str(), DB_PORT, nullptr, 0);
     
     if (!result) {
-        std::cerr << "mysql_real_connect() failed: " << mysql_error(connection_) << std::endl;
+        LOG_ERROR("mysql_real_connect() failed: {}", mysql_error(connection_));
         mysql_close(connection_);
         connection_ = nullptr;
         return false;
     }
     
     connected_ = true;
-    std::cout << "Connected to database successfully" << std::endl;
+    LOG_INFO("Connected to database successfully");
     return true;
 }
 
@@ -137,7 +138,7 @@ bool DatabaseManager::createUser(const std::string& username, const std::string&
     
     // 检查用户是否已存在 (调用无锁版本)
     if (userExistsNoLock(username)) {
-        std::cerr << "User already exists: " << username << std::endl;
+        LOG_ERROR("User already exists: {}", username);
         return false;
     }
     
@@ -150,13 +151,13 @@ bool DatabaseManager::createUser(const std::string& username, const std::string&
     
     // 执行查询
     if (mysql_query(connection_, query.c_str())) {
-        std::cerr << "Failed to execute query: " << mysql_error(connection_) << std::endl;
+        LOG_ERROR("Failed to execute query: {}", mysql_error(connection_));
         return false;
     }
     
     // 获取插入的用户ID
     userId = (int)mysql_insert_id(connection_);
-    std::cout << "User created successfully with ID: " << userId << std::endl;
+    LOG_INFO("User created successfully with ID: {}", userId);
     return true;
 }
 
@@ -172,12 +173,12 @@ bool DatabaseManager::getUserByUsername(const std::string& username, int& userId
     const char* query = "SELECT id, password FROM users WHERE username = ?";
     MYSQL_STMT* stmt = mysql_stmt_init(connection_);
     if (!stmt) {
-        std::cerr << "mysql_stmt_init() failed: " << mysql_error(connection_) << std::endl;
+        LOG_ERROR("mysql_stmt_init() failed: {}", mysql_error(connection_));
         return false;
     }
     
     if (mysql_stmt_prepare(stmt, query, strlen(query))) {
-        std::cerr << "mysql_stmt_prepare() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_prepare() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }
@@ -191,7 +192,7 @@ bool DatabaseManager::getUserByUsername(const std::string& username, int& userId
     param_bind[0].buffer_length = username.length();
     
     if (mysql_stmt_bind_param(stmt, param_bind)) {
-        std::cerr << "mysql_stmt_bind_param() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_bind_param() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }
@@ -215,14 +216,14 @@ bool DatabaseManager::getUserByUsername(const std::string& username, int& userId
     // ... (result_bind[1] 剩余设置)
     
     if (mysql_stmt_bind_result(stmt, result_bind)) {
-        std::cerr << "mysql_stmt_bind_result() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_bind_result() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }
     
     // 执行查询
     if (mysql_stmt_execute(stmt)) {
-        std::cerr << "mysql_stmt_execute() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_execute() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }
@@ -260,12 +261,12 @@ bool DatabaseManager::userExistsNoLock(const std::string& username) {
     const char* query = "SELECT id FROM users WHERE username = ? LIMIT 1";
     MYSQL_STMT* stmt = mysql_stmt_init(connection_);
     if (!stmt) {
-        std::cerr << "mysql_stmt_init() failed: " << mysql_error(connection_) << std::endl;
+        LOG_ERROR("mysql_stmt_init() failed: {}", mysql_error(connection_));
         return false;
     }
     
     if (mysql_stmt_prepare(stmt, query, strlen(query))) {
-        std::cerr << "mysql_stmt_prepare() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_prepare() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }
@@ -279,14 +280,14 @@ bool DatabaseManager::userExistsNoLock(const std::string& username) {
     param_bind[0].buffer_length = username.length();
     
     if (mysql_stmt_bind_param(stmt, param_bind)) {
-        std::cerr << "mysql_stmt_bind_param() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_bind_param() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }
     
     // 执行查询
     if (mysql_stmt_execute(stmt)) {
-        std::cerr << "mysql_stmt_execute() failed: " << mysql_stmt_error(stmt) << std::endl;
+        LOG_ERROR("mysql_stmt_execute() failed: {}", mysql_stmt_error(stmt));
         mysql_stmt_close(stmt);
         return false;
     }

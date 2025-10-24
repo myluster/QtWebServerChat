@@ -3,7 +3,6 @@ import QtQuick
 pragma Singleton
 
 QtObject {
-
     // 进入主页面信号
     signal goToMainPage()
 

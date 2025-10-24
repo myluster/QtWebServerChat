@@ -14,6 +14,9 @@ public:
     bool connect();
     void disconnect();
     bool isConnected() const;
+
+    bool connect_impl();
+    bool isConnected_impl() const;
     
     // 获取原始数据库连接（用于直接执行查询）
     void* getConnection() const { return static_cast<void*>(connection_); }
@@ -37,9 +40,6 @@ private:
     DatabaseManager();
     ~DatabaseManager();
     
-    // 私有的无锁版本，供内部调用避免递归锁死
-    bool connect_impl();
-    bool isConnected_impl() const;
     bool userExistsNoLock(const std::string& username);
     
     MYSQL* connection_;

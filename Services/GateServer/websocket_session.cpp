@@ -3,7 +3,7 @@
 #include <boost/beast/core.hpp>
 #include "websocket_manager.h" 
 #include <boost/asio/steady_timer.hpp>
-#include "status_client.h"
+#include "status_client_manager.h"
 #include <grpcpp/grpcpp.h>
 #include <memory>
 
@@ -11,13 +11,22 @@ websocket_session::websocket_session(tcp::socket&& socket)
     : ws_(std::move(socket))
     , userId_("")
     , sessionId_("")
+    , client_acquired_(false)
 {
     // 初始化心跳时间
     last_heartbeat_ = std::chrono::steady_clock::now();
     
-    // 初始化StatusClient
-    auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
-    status_client_ = std::make_unique<StatusClient>(channel);
+    // 从池中获取StatusClient实例
+    auto& manager = StatusClientManager::getInstance();
+    if (manager.isInitialized()) {
+        status_client_ = manager.acquireClient();
+        client_acquired_ = true;
+    } else {
+        // 如果管理器未初始化，创建临时实例
+        auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
+        status_client_ = std::make_shared<StatusClient>(channel);
+        client_acquired_ = false;
+    }
 }
 
 
@@ -59,8 +68,12 @@ void websocket_session::do_accept(http::request<http::string_body>&& req, beast:
             // 启动心跳机制
             self->start_heartbeat();
             
-            // 更新用户状态为在线
-            self->updateUserStatus(status::ONLINE);
+            net::post(
+                self->ws_.get_executor(), // 获取 asio 上下文
+                [self]() { // 捕获 self（复制 shared_ptr）
+                    self->updateUserStatus(status::ONLINE);
+                }
+            );
             
             // 检查缓冲区是否已有来自 http_session 的数据
             if (self->buffer_.size() > 0) {
@@ -103,7 +116,6 @@ void websocket_session::on_message()
 
     std::cout << "Received message from user ID " << userId_ << ": " << message << std::endl;
 
-    // ... (消息处理逻辑)
     if (message.find("\"type\":\"login\"") != std::string::npos) {
         std::string response = "{\"type\":\"login_response\",\"success\":true,\"message\":\"登录成功\",\"userId\":\"" + userId_ + "\"}";
         send_message(response);
@@ -116,7 +128,7 @@ void websocket_session::on_message()
     }
 
     // 继续读取更多消息
-    do_read(); //
+    do_read();
 }
 
 void websocket_session::send_message(const std::string& message)
@@ -185,6 +197,13 @@ void websocket_session::fail(beast::error_code ec, char const* what)
             updateUserStatus(status::OFFLINE);
             WebSocketManager::getInstance().removeSession(userId_);
         }
+        
+        // 归还StatusClient到池中
+        if (client_acquired_ && status_client_) {
+            StatusClientManager::getInstance().releaseClient(status_client_);
+            status_client_.reset();
+            client_acquired_ = false;
+        }
         return;
     }
 
@@ -195,6 +214,13 @@ void websocket_session::fail(beast::error_code ec, char const* what)
         // 更新用户状态为离线
         updateUserStatus(status::OFFLINE);
         WebSocketManager::getInstance().removeSession(userId_);
+    }
+    
+    // 归还StatusClient到池中
+    if (client_acquired_ && status_client_) {
+        StatusClientManager::getInstance().releaseClient(status_client_);
+        status_client_.reset();
+        client_acquired_ = false;
     }
 }
 
@@ -266,4 +292,9 @@ void websocket_session::updateUserStatus(status::UserStatus status) {
     } catch (const std::exception& e) {
         std::cerr << "Exception while updating user status for user ID " << userId_ << ": " << e.what() << std::endl;
     }
+}
+
+// 新增方法：设置StatusClient
+void websocket_session::setStatusClient(std::shared_ptr<StatusClient> client) {
+    status_client_ = client;
 }

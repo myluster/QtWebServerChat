@@ -15,7 +15,8 @@
         "/usr/include/**",                       // 系统头文件
         "/usr/local/include/**",                 // 本地安装的头文件
         "/usr/include/c++/**",                   // C++标准库
-        "/usr/include/x86_64-linux-gnu/c++/**"   // 平台特定C++头文件
+        "/usr/include/x86_64-linux-gnu/c++/**",  // 平台特定C++头文件
+        "/usr/include/spdlog/**"                 // spdlog库
     ],
     
     // 浏览器路径配置
@@ -24,7 +25,8 @@
         "/usr/include/**",
         "/usr/local/include/**",
         "/usr/include/c++/**",
-        "/usr/include/x86_64-linux-gnu/c++/**"
+        "/usr/include/x86_64-linux-gnu/c++/**",
+        "/usr/include/spdlog/**"                 // spdlog库
     ],
     
     // 预处理器定义

@@ -7,11 +7,13 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include "../utils/logger.h"
 
 class NetworkManager : public QObject
 {
     Q_OBJECT
 
+    Q_PROPERTY(bool useProxy READ useProxy WRITE setUseProxy NOTIFY useProxyChanged)
 public:
     explicit NetworkManager(QObject *parent = nullptr);
     ~NetworkManager();
@@ -22,12 +24,16 @@ public:
     Q_INVOKABLE void sendMessage(const QJsonObject &message);
     Q_INVOKABLE void disconnectFromServer();
 
+    bool useProxy() const;
+    void setUseProxy(bool useProxy);
+
 signals:
     void connectionStateChanged(bool connected);
     void loginResponseReceived(bool success, const QString &message);
     void registerResponseReceived(bool success, const QString &message);
     void messageReceived(const QJsonObject &message);
     void errorOccurred(const QString &error);
+    void useProxyChanged(bool useProxy);
 
 private slots:
     void onConnected();
@@ -39,10 +45,13 @@ private slots:
     void onNetworkReplyFinished(QNetworkReply *reply);  // 新增的统一处理函数
 
 private:
+    bool m_useProxy;
     QWebSocket m_webSocket;
     QNetworkAccessManager *m_networkManager;
     QString m_token;  // 存储认证令牌
     QString m_serverUrl;  // 存储服务器URL
+
+
 
     void establishWebSocketConnection();
 };
