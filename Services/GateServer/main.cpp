@@ -14,6 +14,8 @@
 #include "connection_manager.h"
 #include "status_client_manager.h"
 #include "../utils/logger.h"
+#include "../utils/load_balancer.h"
+#include "../utils/service_registry.h"
 
 namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
@@ -56,6 +58,20 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
         auto const address = net::ip::make_address(argv[1]);
         auto const port = static_cast<unsigned short>(std::atoi(argv[2]));
 
+        // 初始化负载均衡器和服务注册中心
+        LoadBalancer& loadBalancer = LoadBalancer::getInstance();
+        
+        // 注册StatusServer实例（在实际应用中，这应该通过服务发现机制自动完成）
+        loadBalancer.addServiceInstance("StatusServer", "localhost", 50051, 1);
+        loadBalancer.addServiceInstance("StatusServer", "localhost", 50052, 2);  // 更高的权重
+        loadBalancer.addServiceInstance("StatusServer", "localhost", 50053, 1);
+        
+        LOG_INFO("Load balancer initialized with 3 StatusServer instances");
+        
+        // 注册数据库实例到负载均衡器中
+        loadBalancer.addServiceInstance("DatabaseService", "localhost", 3307, 2);
+        LOG_INFO("Registered database instance: localhost:3307 with weight 2");
+        
         // 初始化数据库连接
         DatabaseManager& db = DatabaseManager::getInstance();
         if (!db.connect()) {
@@ -66,8 +82,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
 
         // 初始化StatusClient管理器
         StatusClientManager& statusManager = StatusClientManager::getInstance();
-        statusManager.initialize(4, "localhost:50051"); // 创建4个实例的池
-        LOG_INFO("StatusClientManager initialized");
+        statusManager.initialize(4, "StatusServer"); // 使用服务名称而不是地址
+        LOG_INFO("StatusClientManager initialized with load balancing");
 
         // io_context是我们所有I/O的入口点
         net::io_context ioc{static_cast<int>(std::thread::hardware_concurrency() > 0 ? 

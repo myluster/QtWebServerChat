@@ -12,6 +12,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(${PROJECT_NAME}
     main.cpp
     ../utils/logger.cpp
+    ../utils/load_balancer.cpp
+    ../utils/service_registry.cpp
+    ../utils/health_checker.cpp
 )
 
 # 链接所需库

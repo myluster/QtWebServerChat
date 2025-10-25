@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: im_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: im_database
+      MYSQL_USER: im_user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis 缓存服务
+  redis:
+    image: redis:6.0-alpine
+    container_name: im_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 多个StatusServer实例
+  status-server-1:
+    build: 
+      context: ../Services
+      dockerfile: StatusServer/Dockerfile
+    container_name: im_status_server_1
+    ports:
+      - "50051:50051"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      - SERVICE_NAME=StatusServer
+      - SERVICE_PORT=50051
+
+  status-server-2:
+    build: 
+      context: ../Services
+      dockerfile: StatusServer/Dockerfile
+    container_name: im_status_server_2
+    ports:
+      - "50052:50051"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      - SERVICE_NAME=StatusServer
+      - SERVICE_PORT=50051
+
+  # GateServer
+  gate-server:
+    build: 
+      context: ../Services
+      dockerfile: GateServer/Dockerfile
+    container_name: im_gate_server
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+      - status-server-1
+      - status-server-2
+
+volumes:
+  mysql_data:
+  redis_data:

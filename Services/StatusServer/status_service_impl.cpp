@@ -9,11 +9,22 @@
 StatusServiceImpl::StatusServiceImpl() : db_(DatabaseManager::getInstance()) {
     // 构造函数现在只负责初始化引用
     // 实际连接将在第一次调用时按需建立
+    
+    // 注册数据库实例到DatabaseManager的负载均衡器中
+    // 使用Docker中运行的MySQL服务地址和端口
+    db_.addDatabaseInstance("localhost", 3307, "im_user", "password", "im_database", 2);  // 权重为2
+    
+    LOG_INFO("StatusServiceImpl initialized with integrated load balancing");
 }
 
 Status StatusServiceImpl::UpdateUserStatus(ServerContext* context, 
                                           const UserStatusRequest* request, 
                                           UserStatusResponse* response) {
+    
+    // 现在DatabaseManager内部会自动处理负载均衡
+    // 我们只需要调用数据库操作方法即可
+    
+    LOG_DEBUG("Updating user status for user ID: {}", request->user_id());
     
     // 更新用户状态到数据库
     if (updateUserStatusInDB(request->user_id(), request->status(), request->session_token())) {
@@ -33,6 +44,9 @@ Status StatusServiceImpl::UpdateUserStatus(ServerContext* context,
 Status StatusServiceImpl::GetUserStatus(ServerContext* context, 
                                        const GetUserStatusRequest* request, 
                                        GetUserStatusResponse* response) {
+    
+    LOG_DEBUG("Getting user status for user ID: {}", request->user_id());
+    
     status::UserStatus status;
     std::chrono::time_point<std::chrono::system_clock> last_seen;
     
@@ -55,6 +69,9 @@ Status StatusServiceImpl::GetUserStatus(ServerContext* context,
 Status StatusServiceImpl::GetFriendsStatus(ServerContext* context, 
                                           const GetFriendsStatusRequest* request, 
                                           GetFriendsStatusResponse* response) {
+    
+    LOG_DEBUG("Getting friends status for user ID: {}", request->user_id());
+    
     auto friend_ids = getFriendsIds(request->user_id());
     
     response->set_success(true);
@@ -82,6 +99,10 @@ Status StatusServiceImpl::GetFriendsStatus(ServerContext* context,
 Status StatusServiceImpl::AddFriend(ServerContext* context, 
                                    const AddFriendRequest* request, 
                                    AddFriendResponse* response) {
+    
+    LOG_DEBUG("Adding friend relationship between user {} and user {}", 
+              request->user_id(), request->friend_id());
+    
     if (friendExistsInDB(request->user_id(), request->friend_id())) {
         response->set_success(false);
         response->set_message("Friend relationship already exists");
@@ -103,6 +124,9 @@ Status StatusServiceImpl::AddFriend(ServerContext* context,
 Status StatusServiceImpl::GetFriendsList(ServerContext* context, 
                                         const GetFriendsListRequest* request, 
                                         GetFriendsListResponse* response) {
+    
+    LOG_DEBUG("Getting friends list for user ID: {}", request->user_id());
+    
     auto friend_ids = getFriendsIds(request->user_id());
     
     response->set_success(true);
@@ -128,7 +152,8 @@ bool StatusServiceImpl::validateSessionToken(int32_t user_id, const std::string&
     
     std::string query = "SELECT session_token FROM user_status WHERE user_id = " + std::to_string(user_id);
     if (mysql_query(connection, query.c_str())) {
-        LOG_ERROR("MySQL query error: {}", mysql_error(connection));
+        // DatabaseManager内部会自动处理负载均衡和故障转移
+        LOG_ERROR("Database query failed: {}", mysql_error(connection));
         return false;
     }
     
@@ -229,18 +254,25 @@ bool StatusServiceImpl::getUserStatusFromDB(int32_t user_id, status::UserStatus&
         return false;
     }
     
+    // 解析状态
     if (row[0]) {
         std::string status_str(row[0]);
-        if (status_str == "OFFLINE") status = status::UserStatus::OFFLINE;
-        else if (status_str == "ONLINE") status = status::UserStatus::ONLINE;
-        else if (status_str == "AWAY") status = status::UserStatus::AWAY;
-        else if (status_str == "BUSY") status = status::UserStatus::BUSY;
-        else status = status::UserStatus::OFFLINE;
+        if (status_str == "ONLINE") {
+            status = status::UserStatus::ONLINE;
+        } else if (status_str == "AWAY") {
+            status = status::UserStatus::AWAY;
+        } else if (status_str == "BUSY") {
+            status = status::UserStatus::BUSY;
+        } else {
+            status = status::UserStatus::OFFLINE;
+        }
     } else {
         status = status::UserStatus::OFFLINE;
     }
     
+    // 解析最后在线时间
     if (row[1]) {
+        // 这里简化处理，实际应用中需要正确解析时间戳
         last_seen = std::chrono::system_clock::now();
     } else {
         last_seen = std::chrono::system_clock::now();

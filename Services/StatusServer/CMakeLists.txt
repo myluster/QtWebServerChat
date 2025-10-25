@@ -15,6 +15,9 @@ add_executable(${PROJECT_NAME}
     ../utils/database_manager.cpp
     ../utils/crypto_utils.cpp
     ../utils/logger.cpp
+    ../utils/load_balancer.cpp
+    ../utils/service_registry.cpp
+    ../utils/health_checker.cpp
 )
 
 # 链接所需库

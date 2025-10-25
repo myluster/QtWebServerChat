@@ -118,20 +118,28 @@ echo ""
 echo "启动微服务..."
 cd "${PROJECT_ROOT}/Services/build"
 
+# 启动多个StatusServer实例
+echo "启动 StatusServer 实例..."
+for i in {1..3}; do
+    port=$((50050 + i))
+    if [ -f "./StatusServer/StatusServer" ]; then
+        ./StatusServer/StatusServer --port=$port > status_server_$port.log 2>&1 &
+        echo "StatusServer 实例 $i 已启动在端口 $port，日志已写入 status_server_$port.log"
+    else
+        echo "警告: StatusServer 可执行文件未找到"
+    fi
+done
+
+# 等待StatusServer启动
+echo "等待 StatusServer 实例启动..."
+sleep 3
+
 # 启动 GateServer 并将输出重定向到日志文件
 if [ -f "./GateServer/GateServer" ]; then
     ./GateServer/GateServer 0.0.0.0 8080 > gate_server.log 2>&1 &
     echo "GateServer 已启动，日志已写入 gate_server.log"
 else
     echo "警告: GateServer 可执行文件未找到"
-fi
-
-# 启动 StatusServer 并将输出重定向到日志文件
-if [ -f "./StatusServer/StatusServer" ]; then
-    ./StatusServer/StatusServer > status_server.log 2>&1 &
-    echo "StatusServer 已启动，日志已写入 status_server.log"
-else
-    echo "警告: StatusServer 可执行文件未找到"
 fi
 
 # 启动 VarifyServer 并将输出重定向到日志文件
@@ -149,7 +157,7 @@ echo "============================================"
 echo ""
 echo "微服务日志查看命令："
 echo "  GateServer 日志:   tail -f ${PROJECT_ROOT}/Services/build/gate_server.log"
-echo "  StatusServer 日志: tail -f ${PROJECT_ROOT}/Services/build/status_server.log"
+echo "  StatusServer 日志: tail -f ${PROJECT_ROOT}/Services/build/status_server_*.log"
 echo "  VarifyServer 日志: tail -f ${PROJECT_ROOT}/Services/build/varify_server.log"
 echo ""
 echo "停止所有服务命令："

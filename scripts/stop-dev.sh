@@ -12,9 +12,13 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo "停止微服务..."
 
-# 获取所有微服务的进程ID并终止它们
+# 终止 GateServer 进程
 pkill -f GateServer
+
+# 终止所有 StatusServer 实例进程（可能有多个）
 pkill -f StatusServer
+
+# 终止 VarifyServer 进程
 pkill -f VarifyServer
 
 echo "所有微服务已停止。"
