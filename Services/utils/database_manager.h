@@ -103,6 +103,14 @@ public:
      * @return MYSQL连接指针的void指针形式
      */
     void* getConnection() const { return static_cast<void*>(connection_); }
+
+    /**
+    * @brief 根据用户名模糊搜索用户
+    * @param query 搜索查询字符串
+    * @param limit 最大返回结果数
+    * @return 包含(userId, username)的vector
+    */
+    std::vector<std::pair<int, std::string>> searchUsers(const std::string& query, int limit = 20);
     
     /**
      * @brief 创建新用户
@@ -129,6 +137,24 @@ public:
      * @return 存在返回true，否则返回false
      */
     bool userExists(const std::string& username);
+    
+    /**
+     * @brief 存储消息到数据库
+     * @param senderId 发送者ID
+     * @param receiverId 接收者ID
+     * @param content 消息内容
+     * @return 成功返回true，否则返回false
+     */
+    bool storeMessage(int senderId, int receiverId, const std::string& content);
+    
+    /**
+     * @brief 获取用户之间的消息历史
+     * @param userId 用户ID
+     * @param friendId 好友ID
+     * @param limit 获取消息数量限制
+     * @return 消息历史列表
+     */
+    std::vector<std::tuple<int, int, std::string, std::string>> getMessageHistory(int userId, int friendId, int limit = 50);
     
     /**
      * @brief 获取当前连接的数据库主机地址

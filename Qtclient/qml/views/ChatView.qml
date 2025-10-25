@@ -13,6 +13,27 @@ Item {
     // 聊天记录数据模型
     property var chatMessages: []
 
+    Connections {
+        target: NetworkManager
+
+        onChatHistoryReceived: function(messages) {
+            Logger.info("Chat history received for " + chatId);
+
+            var jsMessages = [];
+            if (messages && typeof messages.forEach === 'function') {
+                messages.forEach(function(msg) {
+                    jsMessages.push(msg);
+                });
+            }
+            chatMessages = jsMessages;
+
+            Qt.callLater(function() {
+                messagesList.positionViewAtEnd();
+            });
+        }
+    }
+
+
     ColumnLayout {
         anchors.fill: parent
 
@@ -215,6 +236,17 @@ Item {
                 // 滚动到最新消息
                 messagesList.positionViewAtEnd();
             });
+
+            // 构建服务端需要的JSON对象
+            var msgObj = {
+                "type": "text_message",
+                "receiver_id": chatId, // chatId 是这个视图的 property
+                "content": messageInput.text
+            };
+            
+            NetworkManager.sendMessage(msgObj);
+
+            messageInput.text = "";
         }
     }
 
@@ -226,34 +258,42 @@ Item {
 
     // 加载聊天记录的函数（示例）
     function loadChatHistory() {
-        // 这里应该从服务器或本地数据库加载聊天记录
-        // 示例数据
-        var sampleMessages = [
-            {
-                "isSent": false,
-                "text": "你好！",
-                "timestamp": "10:30",
-                "senderName": "张三"
-            },
-            {
-                "isSent": true,
-                "text": "你好，有什么可以帮助你的吗？",
-                "timestamp": "10:31",
-                "senderName": ""
-            },
-            {
-                "isSent": false,
-                "text": "我想了解一下你们的产品。",
-                "timestamp": "10:32",
-                "senderName": "张三"
-            }
-        ];
-
-        chatMessages = sampleMessages;
+        if (mainPage && mainPage.currentUserId) {
+            Logger.info("Requesting chat history for user: " + mainPage.currentUserId + " and friend: " + chatId);
+            NetworkManager.getChatHistory(mainPage.currentUserId, chatId);
+        } else {
+            Logger.error("无法加载历史记录: mainPage.currentUserId 未定义");
+            chatMessages = []; // 加载空数组
+        }
     }
 
     // 组件完成时加载聊天记录
     Component.onCompleted: {
         loadChatHistory();
+    }
+
+    // 添加处理接收到的消息的函数
+    function addMessage(message) {
+        console.log("Adding message to chat view:", JSON.stringify(message));
+        
+        // 创建新消息对象
+        var newMessage = {
+            "isSent": false,  // 接收到的消息不是发送的
+            "text": message.content,
+            "timestamp": message.timestamp || getCurrentTime(),
+            "senderName": message.sender_name || "未知用户"
+        };
+
+        // 添加到聊天记录
+        chatMessages.push(newMessage);
+
+        // 使用异步更新模型以避免阻塞UI
+        Qt.callLater(function() {
+            // 更新模型
+            chatMessages = chatMessages.slice(0); // 创建新数组以触发更新
+
+            // 滚动到最新消息
+            messagesList.positionViewAtEnd();
+        });
     }
 }

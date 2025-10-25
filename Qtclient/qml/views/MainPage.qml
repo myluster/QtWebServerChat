@@ -13,6 +13,9 @@ Item {
     property string currentConversationId: ""
     property string currentContactId: ""
 
+    property string currentUserId: NetworkManager.currentUserId
+        property string currentUsername: NetworkManager.currentUsername
+
     // 暴露子组件的引用，以便其他组件可以访问
     property alias chatButton: chatButton
     property alias contactsButton: contactsButton
@@ -20,6 +23,41 @@ Item {
     property alias conversationView: conversationView
     property alias contactView: contactView
     property alias rightPaneLoader: rightPaneLoader
+
+    Connections {
+        target: NetworkManager
+        
+        function onMessageReceived(message) {
+            // 处理接收到的消息
+            handleMessageReceived(message)
+        }
+    }
+    
+    // 添加处理消息的函数
+    function handleMessageReceived(message) {
+        if (message.type === "text_message") {
+            // 将消息传递给当前的聊天视图
+            if (typeof rightPaneLoader.item !== "undefined" &&
+                rightPaneLoader.item !== null &&
+                // 确保 ChatView 已经加载
+                rightPaneLoader.item.hasOwnProperty("addMessage") &&
+                // 确保消息是发给当前打开的聊天的
+                // 注意：服务器发来的消息中应包含 "sender_id"
+                rightPaneLoader.item.chatId === message.sender_id) {
+                // 构造 ChatView.qml 中 addMessage 函数需要的对象
+                    var formattedMessage = {
+                        "isSent": false,
+                        "content": message.content, // addMessage 需要 .content
+                        "timestamp": message.timestamp || "??:??", // 确保服务端发送了时间戳
+                        "sender_name": message.sender_name || "???" // 确保服务端发送了发送者名字
+                    };
+
+                    rightPaneLoader.item.addMessage(formattedMessage)
+            } else {
+                Logger.info("收到消息，但聊天窗口未打开或不匹配: " + message.sender_id)
+            }
+        }
+    }
 
     RowLayout {
         anchors.fill: parent

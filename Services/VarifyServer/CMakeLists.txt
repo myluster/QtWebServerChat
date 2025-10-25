@@ -15,6 +15,7 @@ add_executable(${PROJECT_NAME}
     ../utils/load_balancer.cpp
     ../utils/service_registry.cpp
     ../utils/health_checker.cpp
+    ../utils/redis_manager.cpp
 )
 
 # 链接所需库

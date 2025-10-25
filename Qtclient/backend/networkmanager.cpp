@@ -1,7 +1,9 @@
 #include "networkmanager.h"
 #include <QJsonDocument>
-#include "../utils/logger.h"
+#include <QJsonArray>
 #include <QUrlQuery>
+#include <QTimer>
+#include "../utils/logger.h"
 #include <QNetworkProxy>
 NetworkManager::NetworkManager(QObject *parent)
     : QObject(parent)
@@ -62,6 +64,15 @@ void NetworkManager::disconnectFromServer()
     if (m_webSocket.state() != QAbstractSocket::UnconnectedState) {
         LOG_DEBUG("Disconnecting from server");
         m_webSocket.abort(); // 强制重置
+    }
+
+    if (!m_currentUsername.isEmpty()) {
+        m_currentUsername = "";
+        emit currentUsernameChanged(m_currentUsername);
+    }
+    if (!m_currentUserId.isEmpty()) {
+        m_currentUserId = "";
+        emit currentUserIdChanged(m_currentUserId);
     }
 }
 
@@ -189,9 +200,11 @@ void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
     QUrl requestUrl = reply->request().url();
     QString endpoint = requestUrl.path();
     
+    QString username = reply->property("username").toString();
+
     LOG_DEBUG("HTTP response received for endpoint: %1, user: %2, error: %3", 
-              endpoint, 
-              reply->property("username").toString(), 
+              endpoint,
+              username,
               QString::number(reply->error()));
     
     if (reply->error() == QNetworkReply::NoError) {
@@ -212,6 +225,19 @@ void NetworkManager::onLoginRequestFinished(QNetworkReply *reply)
                     // 登录成功，保存令牌
                     m_token = obj["token"].toString();
                     LOG_INFO("Login successful, token: %1", m_token);
+
+                    QString userId = obj["userId"].toString();
+
+                    if (m_currentUsername != username) {
+                        m_currentUsername = username;
+                        emit currentUsernameChanged(m_currentUsername);
+                    }
+                    if (m_currentUserId != userId) {
+                        m_currentUserId = userId;
+                        emit currentUserIdChanged(m_currentUserId);
+                    }
+
+                    LOG_INFO("User info set: Username=%1, UserID=%2", m_currentUsername, m_currentUserId);
                     
                     // 建立WebSocket连接
                     establishWebSocketConnection();
@@ -337,13 +363,23 @@ void NetworkManager::onConnected()
 
     // 在这里通知 QML 登录已完成，可以导航
     LOG_DEBUG("WebSocket connected, emitting loginResponseReceived(true)");
-    emit loginResponseReceived(true, "登录成功");
+    emit loginResponseReceived(true, QString::fromUtf8("登录成功"));
 }
 
 void NetworkManager::onDisconnected()
 {
     LOG_INFO("Disconnected from server");
     emit connectionStateChanged(false);
+
+    // 清空用户信息
+    if (!m_currentUsername.isEmpty()) {
+        m_currentUsername = "";
+        emit currentUsernameChanged(m_currentUsername);
+    }
+    if (!m_currentUserId.isEmpty()) {
+        m_currentUserId = "";
+        emit currentUserIdChanged(m_currentUserId);
+    }
 }
 
 void NetworkManager::onTextMessageReceived(const QString &message)
@@ -355,7 +391,32 @@ void NetworkManager::onTextMessageReceived(const QString &message)
     
     if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
         QJsonObject obj = doc.object();
-        emit messageReceived(obj);
+        
+        // 检查消息类型并分发到相应的处理函数
+        if (obj.contains("type")) {
+            QString type = obj["type"].toString();
+            
+            if (type == "add_friend_response") {
+                bool success = obj["success"].toBool();
+                QString message = obj["message"].toString();
+                emit addFriendResponseReceived(success, message);
+            } else if (type == "friends_list_response") {
+                QJsonArray friends = obj["friends"].toArray();
+                emit friendsListReceived(friends);
+            } else if (type == "chat_history_response") {
+                QJsonArray messages = obj["messages"].toArray();
+                emit chatHistoryReceived(messages);
+            }else if(type == "search_user_response"){
+                QJsonArray results = obj["results"].toArray();
+                emit searchUserResponseReceived(results);
+            }else {
+                // 其他类型的消息，保持原有的处理方式
+                emit messageReceived(obj);
+            }
+        } else {
+            // 没有type字段的消息，保持原有的处理方式
+            emit messageReceived(obj);
+        }
     } else {
         LOG_ERROR("Failed to parse JSON message: %1", parseError.errorString());
     }
@@ -366,4 +427,110 @@ void NetworkManager::onError(QAbstractSocket::SocketError error)
     QString errorString = m_webSocket.errorString();
     LOG_ERROR("WebSocket error: %1", errorString);
     emit errorOccurred(errorString);
+}
+
+// 添加好友请求
+void NetworkManager::sendAddFriendRequest(int userId, int friendId)
+{
+    QJsonObject request;
+    request["type"] = "add_friend_request";
+    request["user_id"] = userId;
+    request["friend_id"] = friendId;
+    
+    // 通过WebSocket发送添加好友请求
+    if (m_webSocket.state() == QAbstractSocket::ConnectedState) {
+        QJsonDocument doc(request);
+        m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+        LOG_DEBUG("Add friend request sent: %1", QString(doc.toJson(QJsonDocument::Compact)));
+    } else {
+        LOG_WARN("WebSocket is not connected. Cannot send add friend request.");
+        emit addFriendResponseReceived(false, "网络未连接");
+    }
+}
+
+// 获取好友列表
+void NetworkManager::getFriendsList(int userId)
+{
+    QJsonObject request;
+    request["type"] = "get_friends_list";
+    request["user_id"] = userId;
+    
+    // 通过WebSocket发送获取好友列表请求
+    if (m_webSocket.state() == QAbstractSocket::ConnectedState) {
+        QJsonDocument doc(request);
+        m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+        LOG_DEBUG("Get friends list request sent: %1", QString(doc.toJson(QJsonDocument::Compact)));
+    } else {
+        LOG_WARN("WebSocket is not connected. Cannot send get friends list request.");
+    }
+}
+
+// 获取聊天历史记录
+void NetworkManager::getChatHistory(int userId, int friendId)
+{
+    QJsonObject request;
+    request["type"] = "get_chat_history";
+    request["user_id"] = userId;
+    request["friend_id"] = friendId;
+    
+    // 通过WebSocket发送获取聊天历史记录请求
+    if (m_webSocket.state() == QAbstractSocket::ConnectedState) {
+        QJsonDocument doc(request);
+        m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+        LOG_DEBUG("Get chat history request sent: %1", QString(doc.toJson(QJsonDocument::Compact)));
+    } else {
+        LOG_WARN("WebSocket is not connected. Cannot send get chat history request.");
+    }
+}
+
+// 发送gRPC请求（用于与StatusService通信）
+void NetworkManager::sendGRPCRequest(const QString &method, const QJsonObject &requestData)
+{
+    QJsonObject request;
+    request["type"] = "grpc_request";
+    request["method"] = method;
+    request["data"] = requestData;
+    
+    // 通过WebSocket发送gRPC请求
+    if (m_webSocket.state() == QAbstractSocket::ConnectedState) {
+        QJsonDocument doc(request);
+        m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+        LOG_DEBUG("gRPC request sent: %1", QString(doc.toJson(QJsonDocument::Compact)));
+    } else {
+        LOG_WARN("WebSocket is not connected. Cannot send gRPC request.");
+
+    }
+}
+
+void NetworkManager::searchUser(const QString &query)
+{
+    if (query.isEmpty()) {
+        return;
+    }
+
+    QJsonObject request;
+    request["type"] = "search_user";
+    request["query"] = query;
+
+    // 通过WebSocket发送搜索请求
+    if (m_webSocket.state() == QAbstractSocket::ConnectedState) {
+        QJsonDocument doc(request);
+        m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+        LOG_DEBUG("Search user request sent: %1", QString(doc.toJson(QJsonDocument::Compact)));
+    } else {
+        LOG_WARN("WebSocket is not connected. Cannot send search user request.");
+        // 您可以发一个空数组的信号，或一个错误信号
+        emit searchUserResponseReceived(QJsonArray());
+    }
+}
+
+
+QString NetworkManager::currentUsername() const
+{
+    return m_currentUsername;
+}
+
+QString NetworkManager::currentUserId() const
+{
+    return m_currentUserId;
 }

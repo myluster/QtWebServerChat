@@ -16,6 +16,7 @@
 #include "../utils/logger.h"
 #include "../utils/load_balancer.h"
 #include "../utils/service_registry.h"
+#include "../utils/redis_manager.h"
 
 namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
@@ -41,6 +42,7 @@ void signalHandler(int signal) {
     // 清理资源
     WebSocketManager::getInstance().cleanup();
     DatabaseManager::getInstance().disconnect();
+    RedisManager::getInstance().disconnect();
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
@@ -79,6 +81,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[])
             return EXIT_FAILURE;
         }
         LOG_INFO("Database connected successfully");
+
+        // 初始化Redis连接
+        RedisManager& redis = RedisManager::getInstance();
+        if (!redis.initialize("localhost", 6379, 10)) {
+            LOG_WARN("Failed to connect to Redis, continuing without Redis support");
+        } else {
+            LOG_INFO("Redis connected successfully");
+        }
 
         // 初始化StatusClient管理器
         StatusClientManager& statusManager = StatusClientManager::getInstance();

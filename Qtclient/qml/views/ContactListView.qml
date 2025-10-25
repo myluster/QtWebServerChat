@@ -13,12 +13,8 @@ ListView {
     // 存储当前选中的联系人 ID
     property string currentContactId: ""
 
-    // 使用临时的 ListModel 作为数据源
+    // 使用空的 ListModel 作为数据源
     model: ListModel {
-        ListElement { contactId: "friend_001"; name: "张三"; status: "在线" }
-        ListElement { contactId: "friend_002"; name: "李四"; status: "离线" }
-        ListElement { contactId: "friend_003"; name: "王五"; status: "在线" }
-        ListElement { contactId: "friend_004"; name: "赵六"; status: "离线" }
     }
 
     // 定义每个列表项的外观和行为

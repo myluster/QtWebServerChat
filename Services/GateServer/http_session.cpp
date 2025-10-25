@@ -399,13 +399,18 @@ void http_session::handle_register() {
         res_.body() = "{\"type\":\"register_failed\",\"message\":\"Username already exists\"}";
         res_.prepare_payload();
         std::cout << "Sending failure response: " << res_.body() << std::endl;
+        LOG_DEBUG("Register failed: Username {} already exists. Attempting to send conflict response.", username);
         do_write();
         return;
     }
+
+    LOG_DEBUG("Calling db.createUser for user: {}", username);
     
     // 创建新用户
     int userId;
-    if (db.createUser(username, password, email, userId)) {
+    bool dbSuccess = db.createUser(username, password, email, userId);
+    LOG_DEBUG("db.createUser finished for user: {}, success: {}", username, dbSuccess);
+    if (dbSuccess) {
         std::cout << "User registered successfully" << std::endl;
         res_.version(req_.version());
         res_.result(http::status::ok);
@@ -415,6 +420,7 @@ void http_session::handle_register() {
         res_.body() = "{\"type\":\"register_success\",\"message\":\"User registered successfully\",\"userId\":\"" + std::to_string(userId) + "\"}";
         res_.prepare_payload();
         std::cout << "Sending success response: " << res_.body() << std::endl;
+        LOG_DEBUG("Attempting to send register success response for user: {}", username);
         do_write();
     } else {
         std::cout << "Failed to register user" << std::endl;
@@ -426,6 +432,7 @@ void http_session::handle_register() {
         res_.body() = "{\"type\":\"register_failed\",\"message\":\"Failed to register user\"}";
         res_.prepare_payload();
         std::cout << "Sending failure response: " << res_.body() << std::endl;
+        LOG_DEBUG("Attempting to send register failure response for user: {}", username);
         do_write();
     }
 }

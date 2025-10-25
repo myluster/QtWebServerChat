@@ -8,6 +8,7 @@
 #include <mutex>
 #include <chrono>
 #include "../utils/database_manager.h"
+#include "../utils/redis_manager.h"
 
 using grpc::ServerContext;
 using grpc::Status;
@@ -51,6 +52,9 @@ private:
     // 数据库管理器引用
     DatabaseManager& db_;
     
+    // Redis管理器引用
+    RedisManager& redis_;
+    
     // 内部辅助方法
     bool validateSessionToken(int32_t user_id, const std::string& token);
     std::vector<int32_t> getFriendsIds(int32_t user_id);
@@ -60,6 +64,12 @@ private:
     bool getUserStatusFromDB(int32_t user_id, status::UserStatus& status, std::chrono::time_point<std::chrono::system_clock>& last_seen);
     bool addFriendToDB(int32_t user_id, int32_t friend_id);
     bool friendExistsInDB(int32_t user_id, int32_t friend_id);
+    
+    // Redis缓存操作方法
+    bool updateUserStatusInCache(int32_t user_id, status::UserStatus status, const std::string& session_token);
+    bool getUserStatusFromCache(int32_t user_id, status::UserStatus& status, std::string& session_token);
+    bool cacheFriendsList(int32_t user_id, const std::vector<int32_t>& friend_ids);
+    bool getCachedFriendsList(int32_t user_id, std::vector<int32_t>& friend_ids);
 };
 
 #endif // STATUS_SERVICE_IMPL_H

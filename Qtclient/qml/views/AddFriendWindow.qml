@@ -3,6 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import "../theme"
+import Network 1.0
+import Logger 1.0
 
 ApplicationWindow {
     id: addFriendWindow
@@ -11,6 +13,40 @@ ApplicationWindow {
     minimumWidth: 400
     minimumHeight: 700
     modality: Qt.ApplicationModal
+
+    // 监听来自 NetworkManager 的响应
+    Connections {
+        target: NetworkManager
+
+        onAddFriendResponseReceived: function(success, message) {
+            Logger.info("Add friend response: " + success + ", msg: " + message);
+            infoText.text = message;
+            infoText.color = success ? "green" : "red";
+            infoText.opacity = 1.0;
+        }
+
+        onSearchUserResponseReceived: function(results) {
+            Logger.info("Search results received: " + results.length + " items");
+            searchResultModel.clear();
+
+            if (results.length === 0) {
+                infoText.text = "未找到用户";
+                infoText.color = "orange";
+                infoText.opacity = 1.0;
+                return;
+            }
+
+            if (results && typeof results.forEach === 'function') {
+                results.forEach(function(user) {
+                    searchResultModel.append({
+                        "userId": user.userId,
+                        "userName": user.userName,
+                        "userStatus": user.userStatus || "未知"
+                    });
+                });
+            }
+        }
+    }
 
     // 移除原生边框，并使窗口背景完全透明
     flags: Qt.Window | Qt.FramelessWindowHint
@@ -154,20 +190,14 @@ ApplicationWindow {
                             }
 
                             onClicked: {
-                                // 模拟搜索功能
                                 if (searchField.text.trim() !== "") {
-                                    searchResultModel.clear()
-                                    // 添加模拟搜索结果
-                                    searchResultModel.append({
-                                        "userId": "user_001",
-                                        "userName": "测试用户1",
-                                        "userStatus": "在线"
-                                    })
-                                    searchResultModel.append({
-                                        "userId": "user_002",
-                                        "userName": "测试用户2",
-                                        "userStatus": "离线"
-                                    })
+                                    searchResultModel.clear();
+                                    Logger.info("Calling NetworkManager.searchUser with: " + searchField.text.trim());
+                                    NetworkManager.searchUser(searchField.text.trim());
+                                } else {
+                                    infoText.text = "请输入搜索内容";
+                                    infoText.color = "red";
+                                    infoText.opacity = 1.0;
                                 }
                             }
                         }
@@ -181,8 +211,6 @@ ApplicationWindow {
 
                             model: ListModel {
                                 id: searchResultModel
-                                // 示例数据
-                                // ListElement { userId: "user_001"; userName: "测试用户1"; userStatus: "在线" }
                             }
 
                             delegate: Rectangle {
@@ -228,12 +256,15 @@ ApplicationWindow {
                                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                         text: "添加"
                                         onClicked: {
-                                            // 模拟添加好友功能
-                                            console.log("添加好友请求已发送给: " + model.userName)
-                                            // 显示提示信息
-                                            infoText.text = "好友申请已发送给 " + model.userName
-                                            infoText.color = "green"
-                                            infoTimer.start()
+                                            if (mainPage && mainPage.currentUserId) {
+                                                Logger.info("Sending add friend request from user: " + mainPage.currentUserId + " to user: " + model.userId);
+                                                NetworkManager.sendAddFriendRequest(mainPage.currentUserId, model.userId);
+                                            } else {
+                                                Logger.error("无法添加好友: mainPage.currentUserId 未定义");
+                                                infoText.text = "客户端错误：未登录";
+                                                infoText.color = "red";
+                                                infoText.opacity = 1.0;
+                                            }
                                         }
                                     }
                                 }
@@ -258,21 +289,6 @@ ApplicationWindow {
 
                             model: ListModel {
                                 id: friendRequestModel
-                                // 示例数据
-                                ListElement {
-                                    requestId: "req_001";
-                                    requesterName: "张三";
-                                    requesterId: "user_003";
-                                    requestMessage: "我是张三，想加你为好友";
-                                    requestTime: "2023-05-01 10:30"
-                                }
-                                ListElement {
-                                    requestId: "req_002";
-                                    requesterName: "李四";
-                                    requesterId: "user_004";
-                                    requestMessage: "你好，我们是同事";
-                                    requestTime: "2023-05-02 14:15"
-                                }
                             }
 
                             delegate: Rectangle {

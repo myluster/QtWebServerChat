@@ -96,20 +96,6 @@ include_directories(${PROTO_GENERATED_DIR})
 link_directories(${GRPC_LIBRARY_DIRS})
 link_directories(${MYSQLCLIENT_LIBRARY_DIRS})
 
-# 添加依赖测试程序
-add_executable(test_dependencies test_dependencies.cpp)
-
-# 链接测试程序所需的库
-target_link_libraries(test_dependencies PRIVATE
-    ${Boost_LIBRARIES}
-    ${GRPC_LIBRARIES}
-    ${MYSQLCLIENT_LIBRARIES}
-    ${HIREDIS_LIBRARY}
-    Threads::Threads
-    nlohmann_json::nlohmann_json
-    spdlog::spdlog
-)
-
 # 添加子目录（各个微服务）
 add_subdirectory(GateServer)
 add_subdirectory(StatusServer)

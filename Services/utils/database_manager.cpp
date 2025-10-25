@@ -431,3 +431,297 @@ bool DatabaseManager::userExistsNoLock(const std::string& username) {
     mysql_stmt_close(stmt);
     return exists;
 }
+
+/**
+ * @brief 存储消息到数据库
+ * @param senderId 发送者ID
+ * @param receiverId 接收者ID
+ * @param content 消息内容
+ * @return 成功返回true，否则返回false
+ */
+bool DatabaseManager::storeMessage(int senderId, int receiverId, const std::string& content) {
+    std::lock_guard<std::mutex> lock(mutex_); // 加锁保护整个操作
+    
+    // 调用无锁的 _impl 版本
+    if (!isConnected_impl() && !connect_impl()) {
+        return false;
+    }
+    
+    // 使用预处理语句防止SQL注入
+    const char* query = "INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)";
+    MYSQL_STMT* stmt = mysql_stmt_init(connection_);
+    if (!stmt) {
+        LOG_ERROR("mysql_stmt_init() failed: {}", mysql_error(connection_));
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return false;
+    }
+    
+    if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+        LOG_ERROR("mysql_stmt_prepare() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return false;
+    }
+    
+    // 绑定参数
+    MYSQL_BIND param_bind[3];
+    memset(param_bind, 0, sizeof(param_bind));
+    
+    // sender_id
+    param_bind[0].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[0].buffer = &senderId;
+    
+    // receiver_id
+    param_bind[1].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[1].buffer = &receiverId;
+    
+    // content
+    param_bind[2].buffer_type = MYSQL_TYPE_STRING;
+    param_bind[2].buffer = (char*)content.c_str();
+    param_bind[2].buffer_length = content.length();
+    
+    if (mysql_stmt_bind_param(stmt, param_bind)) {
+        LOG_ERROR("mysql_stmt_bind_param() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return false;
+    }
+    
+    // 执行查询
+    if (mysql_stmt_execute(stmt)) {
+        LOG_ERROR("mysql_stmt_execute() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return false;
+    }
+    
+    mysql_stmt_close(stmt);
+    LOG_INFO("Message stored successfully from user {} to user {}", senderId, receiverId);
+    return true;
+}
+
+/**
+ * @brief 获取用户之间的消息历史
+ * @param userId 用户ID
+ * @param friendId 好友ID
+ * @param limit 获取消息数量限制
+ * @return 消息历史列表，每个元素包含(发送者ID, 接收者ID, 内容, 时间戳)
+ */
+std::vector<std::tuple<int, int, std::string, std::string>> DatabaseManager::getMessageHistory(int userId, int friendId, int limit) {
+    std::vector<std::tuple<int, int, std::string, std::string>> messages;
+    std::lock_guard<std::mutex> lock(mutex_); // 加锁保护整个操作
+    
+    // 调用无锁的 _impl 版本
+    if (!isConnected_impl() && !connect_impl()) {
+        return messages;
+    }
+    
+    // 使用预处理语句防止SQL注入
+    const char* query = "SELECT sender_id, receiver_id, content, timestamp FROM messages "
+                        "WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) "
+                        "ORDER BY timestamp DESC LIMIT ?";
+    MYSQL_STMT* stmt = mysql_stmt_init(connection_);
+    if (!stmt) {
+        LOG_ERROR("mysql_stmt_init() failed: {}", mysql_error(connection_));
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return messages;
+    }
+    
+    if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+        LOG_ERROR("mysql_stmt_prepare() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return messages;
+    }
+    
+    // 绑定参数
+    MYSQL_BIND param_bind[5];
+    memset(param_bind, 0, sizeof(param_bind));
+    
+    // sender_id = userId, receiver_id = friendId
+    param_bind[0].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[0].buffer = &userId;
+    
+    param_bind[1].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[1].buffer = &friendId;
+    
+    // sender_id = friendId, receiver_id = userId
+    param_bind[2].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[2].buffer = &friendId;
+    
+    param_bind[3].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[3].buffer = &userId;
+    
+    // limit
+    param_bind[4].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[4].buffer = &limit;
+    
+    if (mysql_stmt_bind_param(stmt, param_bind)) {
+        LOG_ERROR("mysql_stmt_bind_param() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return messages;
+    }
+    
+    // 绑定结果
+    MYSQL_BIND result_bind[4];
+    memset(result_bind, 0, sizeof(result_bind));
+    
+    int sender_id, receiver_id;
+    char content[1024];
+    unsigned long content_length;
+    char timestamp[32];
+    unsigned long timestamp_length;
+    
+    // sender_id
+    result_bind[0].buffer_type = MYSQL_TYPE_LONG;
+    result_bind[0].buffer = &sender_id;
+    
+    // receiver_id
+    result_bind[1].buffer_type = MYSQL_TYPE_LONG;
+    result_bind[1].buffer = &receiver_id;
+    
+    // content
+    result_bind[2].buffer_type = MYSQL_TYPE_STRING;
+    result_bind[2].buffer = content;
+    result_bind[2].buffer_length = sizeof(content);
+    result_bind[2].length = &content_length;
+    
+    // timestamp
+    result_bind[3].buffer_type = MYSQL_TYPE_STRING;
+    result_bind[3].buffer = timestamp;
+    result_bind[3].buffer_length = sizeof(timestamp);
+    result_bind[3].length = &timestamp_length;
+    
+    if (mysql_stmt_bind_result(stmt, result_bind)) {
+        LOG_ERROR("mysql_stmt_bind_result() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return messages;
+    }
+    
+    // 执行查询
+    if (mysql_stmt_execute(stmt)) {
+        LOG_ERROR("mysql_stmt_execute() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        // 标记当前实例为不健康
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return messages;
+    }
+    
+    // 获取结果
+    while (mysql_stmt_fetch(stmt) == 0) {
+        std::string content_str(content, content_length);
+        std::string timestamp_str(timestamp, timestamp_length);
+        messages.emplace_back(sender_id, receiver_id, content_str, timestamp_str);
+    }
+    
+    mysql_stmt_close(stmt);
+    LOG_INFO("Retrieved {} messages between user {} and user {}", messages.size(), userId, friendId);
+    return messages;
+}
+
+/**
+ * @brief 根据用户名模糊搜索用户
+ * @param query 搜索查询字符串
+ * @param limit 最大返回结果数
+ * @return 包含(userId, username)的vector
+ */
+std::vector<std::pair<int, std::string>> DatabaseManager::searchUsers(const std::string& query, int limit) {
+    std::vector<std::pair<int, std::string>> users;
+    std::lock_guard<std::mutex> lock(mutex_); // 加锁保护整个操作
+    
+    // 调用无锁的 _impl 版本
+    if (!isConnected_impl() && !connect_impl()) {
+        return users;
+    }
+
+    // 构造模糊查询字符串
+    std::string searchQuery = query + "%";
+
+    // 使用预处理语句防止SQL注入
+    const char* sql = "SELECT id, username FROM users WHERE username LIKE ? LIMIT ?";
+    MYSQL_STMT* stmt = mysql_stmt_init(connection_);
+    if (!stmt) {
+        LOG_ERROR("mysql_stmt_init() failed: {}", mysql_error(connection_));
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return users;
+    }
+
+    if (mysql_stmt_prepare(stmt, sql, strlen(sql))) {
+        LOG_ERROR("mysql_stmt_prepare() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return users;
+    }
+
+    // 绑定参数
+    MYSQL_BIND param_bind[2];
+    memset(param_bind, 0, sizeof(param_bind));
+
+    // 参数1: searchQuery (LIKE ?)
+    param_bind[0].buffer_type = MYSQL_TYPE_STRING;
+    param_bind[0].buffer = (char*)searchQuery.c_str();
+    param_bind[0].buffer_length = searchQuery.length();
+
+    // 参数2: limit (LIMIT ?)
+    param_bind[1].buffer_type = MYSQL_TYPE_LONG;
+    param_bind[1].buffer = &limit;
+
+    if (mysql_stmt_bind_param(stmt, param_bind)) {
+        LOG_ERROR("mysql_stmt_bind_param() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return users;
+    }
+
+    // 绑定结果
+    MYSQL_BIND result_bind[2];
+    memset(result_bind, 0, sizeof(result_bind));
+
+    int user_id;
+    char username[256];
+    unsigned long username_length;
+
+    // 结果1: id
+    result_bind[0].buffer_type = MYSQL_TYPE_LONG;
+    result_bind[0].buffer = &user_id;
+
+    // 结果2: username
+    result_bind[1].buffer_type = MYSQL_TYPE_STRING;
+    result_bind[1].buffer = username;
+    result_bind[1].buffer_length = sizeof(username);
+    result_bind[1].length = &username_length;
+
+    if (mysql_stmt_bind_result(stmt, result_bind)) {
+        LOG_ERROR("mysql_stmt_bind_result() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return users;
+    }
+
+    // 执行查询
+    if (mysql_stmt_execute(stmt)) {
+        LOG_ERROR("mysql_stmt_execute() failed: {}", mysql_stmt_error(stmt));
+        mysql_stmt_close(stmt);
+        updateInstanceHealth(currentHost_, currentPort_, false);
+        return users;
+    }
+
+    // 获取结果
+    while (mysql_stmt_fetch(stmt) == 0) {
+        users.emplace_back(user_id, std::string(username, username_length));
+    }
+
+    mysql_stmt_close(stmt);
+    LOG_INFO("Search for '{}' found {} users", query, users.size());
+    return users;
+}

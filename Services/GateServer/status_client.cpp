@@ -80,3 +80,50 @@ bool StatusClient::GetFriendsStatus(int32_t user_id,
     message = response.message();
     return true;
 }
+
+bool StatusClient::AddFriend(int32_t user_id, int32_t friend_id, std::string& message) {
+    AddFriendRequest request;
+    AddFriendResponse response;
+    ClientContext context;
+    
+    request.set_user_id(user_id);
+    request.set_friend_id(friend_id);
+    
+    Status status_grpc = stub_->AddFriend(&context, request, &response);
+    
+    if (!status_grpc.ok()) {
+        message = "gRPC error: " + status_grpc.error_message();
+        return false;
+    }
+    
+    message = response.message();
+    return response.success();
+}
+
+bool StatusClient::GetFriendsList(int32_t user_id, std::vector<status::FriendInfo>& friends, std::string& message) {
+    GetFriendsListRequest request;
+    GetFriendsListResponse response;
+    ClientContext context;
+    
+    request.set_user_id(user_id);
+    
+    Status status_grpc = stub_->GetFriendsList(&context, request, &response);
+    
+    if (!status_grpc.ok()) {
+        message = "gRPC error: " + status_grpc.error_message();
+        return false;
+    }
+    
+    if (!response.success()) {
+        message = response.message();
+        return false;
+    }
+    
+    // 复制好友信息
+    for (const auto& friend_info : response.friends()) {
+        friends.push_back(friend_info);
+    }
+    
+    message = response.message();
+    return true;
+}

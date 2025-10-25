@@ -6,12 +6,16 @@
 #include "status_client_manager.h"
 #include <grpcpp/grpcpp.h>
 #include <memory>
+#include <ctime>
+#include <boost/json.hpp>
 
 websocket_session::websocket_session(tcp::socket&& socket)
     : ws_(std::move(socket))
     , userId_("")
     , sessionId_("")
     , client_acquired_(false)
+    , redis_(RedisManager::getInstance())
+    , db_(DatabaseManager::getInstance())
 {
     // 初始化心跳时间
     last_heartbeat_ = std::chrono::steady_clock::now();
@@ -27,6 +31,9 @@ websocket_session::websocket_session(tcp::socket&& socket)
         status_client_ = std::make_shared<StatusClient>(channel);
         client_acquired_ = false;
     }
+    
+    // 初始化Redis连接
+    redis_.initialize("localhost", 6379, 5);  // 5个连接的连接池
 }
 
 
@@ -116,19 +123,104 @@ void websocket_session::on_message()
 
     std::cout << "Received message from user ID " << userId_ << ": " << message << std::endl;
 
-    if (message.find("\"type\":\"login\"") != std::string::npos) {
-        std::string response = "{\"type\":\"login_response\",\"success\":true,\"message\":\"登录成功\",\"userId\":\"" + userId_ + "\"}";
-        send_message(response);
-    } else if (message.find("\"type\":\"heartbeat\"") != std::string::npos) {
-        std::string response = "{\"type\":\"heartbeat_response\",\"timestamp\":" + std::to_string(std::time(nullptr)) + "}";
-        send_message(response);
-    } else {
-        std::string response = "{\"type\":\"message\",\"from\":\"server\",\"content\":\"Echo: " + message + "\"}";
-        send_message(response);
-    }
+    // 处理不同类型的消息
+    handle_text_message(message);
 
     // 继续读取更多消息
     do_read();
+}
+
+void websocket_session::handle_text_message(const std::string& message) {
+    try {
+        // 解析JSON消息
+        boost::json::value jv = boost::json::parse(message);
+        
+        // 检查消息类型
+        if (jv.is_object() && jv.as_object().contains("type")) {
+            std::string type = jv.as_object().at("type").as_string().c_str();
+            
+            if (type == "login") {
+                std::string response = "{\"type\":\"login_response\",\"success\":true,\"message\":\"登录成功\",\"userId\":\"" + userId_ + "\"}";
+                send_message(response);
+            } else if (type == "heartbeat") {
+                std::string response = "{\"type\":\"heartbeat_response\",\"timestamp\":" + std::to_string(std::time(nullptr)) + "}";
+                send_message(response);
+            } else if (type == "text_message") {
+                // 处理文本消息
+                if (jv.as_object().contains("content") && jv.as_object().contains("receiver_id")) {
+                    std::string content = jv.as_object().at("content").as_string().c_str();
+                    std::string receiver_id_str = jv.as_object().at("receiver_id").as_string().c_str();
+                    
+                    try {
+                        int receiver_id = std::stoi(receiver_id_str);
+                        int sender_id = std::stoi(userId_);
+                        
+                        // 存储消息到数据库
+                        if (db_.storeMessage(sender_id, receiver_id, content)) {
+                            std::cout << "Message stored successfully from user " << sender_id << " to user " << receiver_id << std::endl;
+                            
+                            // 转发消息给接收者（如果在线）
+                            auto receiver_session = WebSocketManager::getInstance().getSession(receiver_id_str);
+                            if (receiver_session) {
+                                // 构造转发消息
+                                std::string forward_message = "{\"type\":\"text_message\",\"sender_id\":\"" + userId_ + 
+                                                              "\",\"content\":\"" + content + "\",\"timestamp\":" + 
+                                                              std::to_string(std::time(nullptr)) + "}";
+                                receiver_session->send_message(forward_message);
+                            }
+                        } else {
+                            std::cerr << "Failed to store message to database" << std::endl;
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error processing message: " << e.what() << std::endl;
+                    }
+                }
+            }else if(type == "search_user"){
+                if (jv.as_object().contains("query")) {
+                    std::string query = jv.as_object().at("query").as_string().c_str();
+                    LOG_INFO("Processing search_user request with query: {}", query);
+
+                    // 调用 DatabaseManager
+                    auto users = db_.searchUsers(query);
+
+                    // 构建JSON响应
+                    boost::json::object response;
+                    response["type"] = "search_user_response";
+                    boost::json::array results;
+
+                    // 填充结果
+                    for (const auto& user_pair : users) {
+                        // 匹配 QML ListModel
+                        boost::json::object user_obj;
+                        user_obj["userId"] = std::to_string(user_pair.first);
+                        user_obj["userName"] = user_pair.second;
+                        user_obj["userStatus"] = "未知"; // 状态服务需要额外查询，此处简化
+                        results.push_back(user_obj);
+                    }
+                    
+                    response["results"] = results;
+                    
+                    LOG_DEBUG("Attempting to send search_user_response with {} results", results.size());
+                    
+                    // 发送响应
+                    send_message(boost::json::serialize(response));
+                }
+            }else {
+                // 其他类型的消息，回显
+                std::string response = "{\"type\":\"message\",\"from\":\"server\",\"content\":\"Echo: " + message + "\"}";
+                send_message(response);
+            }
+        } else {
+            // 非JSON格式或不包含type字段的消息，回显
+            std::string response = "{\"type\":\"message\",\"from\":\"server\",\"content\":\"Echo: " + message + "\"}";
+            send_message(response);
+        }
+    } catch (const std::exception& e) {
+        // JSON解析失败，回显原始消息
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        std::string response = "{\"type\":\"message\",\"from\":\"server\",\"content\":\"Echo: " + message + "\"}";
+        send_message(response);
+    }
 }
 
 void websocket_session::send_message(const std::string& message)
@@ -288,6 +380,21 @@ void websocket_session::updateUserStatus(status::UserStatus status) {
             std::cerr << "Failed to update user status for user ID " << userId_ << ": " << message << std::endl;
         } else {
             std::cout << "Successfully updated user status for user ID " << userId_ << " to " << status << std::endl;
+            
+            // 同时更新Redis缓存
+            std::string key = "user:status:" + userId_;
+            std::string status_str;
+            switch (status) {
+                case status::UserStatus::OFFLINE: status_str = "OFFLINE"; break;
+                case status::UserStatus::ONLINE: status_str = "ONLINE"; break;
+                case status::UserStatus::AWAY: status_str = "AWAY"; break;
+                case status::UserStatus::BUSY: status_str = "BUSY"; break;
+                default: status_str = "OFFLINE"; break;
+            }
+            
+            // 更新Redis中的用户状态
+            redis_.hset(key, "status", status_str);
+            redis_.hset(key, "last_updated", std::to_string(std::time(nullptr)));
         }
     } catch (const std::exception& e) {
         std::cerr << "Exception while updating user status for user ID " << userId_ << ": " << e.what() << std::endl;

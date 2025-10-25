@@ -12,10 +12,8 @@ ListView {
     // 存储当前选中的会话 ID
     property string currentConversationId: ""
 
-    // 使用临时的 ListModel 作为数据源
+    // 使用空的 ListModel 作为数据源
     model: ListModel {
-        ListElement { conversationId: "user_001"; name: "文件传输助手"; lastMessage: "图片已收到";}
-        ListElement { conversationId: "group_001"; name: "技术交流群"; lastMessage: "张三：新版本已发布111111111111111111111111111111111！";}
     }
 
     // 定义每个列表项的外观和行为
